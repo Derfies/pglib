@@ -19,6 +19,12 @@ class NEG_X( object ):
     dx, dy = -1, 0
 
 
+POS_Y.opposite = NEG_Y
+NEG_Y.opposite = POS_Y
+POS_X.opposite = NEG_X
+NEG_X.opposite = POS_X
+
+
 DIRECTIONS = [
     POS_Y,
     POS_X,

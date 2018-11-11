@@ -39,7 +39,16 @@ class Region( object ):
         return x, y
 
     def get2dArray( self ):
-        return [[self.x1, self.y1], [self.x2, self.y2]]
+        return [
+            [self.x1, self.y1], 
+            [self.x2, self.y2]
+        ]
+
+    def getXEdges( self ):
+        return [self.x1, self.x2]
+
+    def getYEdges( self ):
+        return [self.y1, self.y2]
 
     def intersects( self, other ):
         return (
@@ -47,6 +56,14 @@ class Region( object ):
             self.x2 > other.x1 and
             self.y1 < other.y2 and 
             self.y2 > other.y1
+        )
+
+    def touches( self, other ):
+        return (
+            self.x1 <= other.x2 and 
+            self.x2 >= other.x1 and
+            self.y1 <= other.y2 and 
+            self.y2 >= other.y1
         )
 
     def encloses( self, other ):

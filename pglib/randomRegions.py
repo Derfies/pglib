@@ -6,13 +6,6 @@ from region import Region
 from uberNode import UberNode
 
 
-def getSinWeights( x ):
-    return {
-        i: math.sin( math.radians( i / (float( x ) - 1) * 180.0 ) )
-        for i in range( x )
-    }
-
-
 class RandomRegions( UberNode ):
 
     def __init__( self ):
@@ -22,7 +15,7 @@ class RandomRegions( UberNode ):
             'maxSize',
             'maxIterations',
             'intersect',
-            'weightToCenter'
+            'centerWeight'
         ], outputs=[
             'regions'
         ] )
@@ -38,9 +31,12 @@ class RandomRegions( UberNode ):
             # Randomise some coords. Weight them towards the center if 
             # specified.
             x, y = 0, 0
-            if self.inputs['weightToCenter']:
-                xWeights = getSinWeights( self.inputs['region'].width - w )
-                yWeights = getSinWeights( self.inputs['region'].height - h )
+            if self.inputs['centerWeight']:
+                fn = self.inputs['centerWeight'].outputs['function']
+                rx = self.inputs['region'].width - w
+                ry = self.inputs['region'].height - h
+                xWeights = {i: fn( i / (float( rx ) - 1 ) * 180.0 ) for i in range( rx )}
+                yWeights = {i: fn( i / (float( ry ) - 1 ) * 180.0 ) for i in range( ry )}
                 x = utils.weightedChoice( xWeights.items() )
                 y = utils.weightedChoice( yWeights.items() )
             else:

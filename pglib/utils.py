@@ -4,6 +4,13 @@ import random
 from const import *
 
 
+def getRandomColour( a=0.25 ):
+    r = random.uniform( 0.0, 1.0 )
+    g = random.uniform( 0.0, 1.0 )
+    b = random.uniform( 0.0, 1.0 )
+    return r, g, b, a
+
+
 def getRandomDirection( directions=None ):
     directions = directions or DIRECTIONS
     idx = random.randint( 0, len( directions ) - 1 )

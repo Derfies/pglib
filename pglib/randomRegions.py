@@ -8,7 +8,10 @@ from uberNode import UberNode
 
 class RandomRegions( UberNode ):
 
-    def __init__( self ):
+    def __init__( self, inputs=None ):
+        if inputs is None:
+            inputs = {}
+            
         UberNode.__init__( self, inputs=[
             'region',
             'minSize',
@@ -19,6 +22,8 @@ class RandomRegions( UberNode ):
         ], outputs=[
             'regions'
         ] )
+
+        self.inputs['centerWeight'] = None
 
     def evaluate( self ):
         regions = []
@@ -31,17 +36,17 @@ class RandomRegions( UberNode ):
             # Randomise some coords. Weight them towards the center if 
             # specified.
             x, y = 0, 0
-            if self.inputs['centerWeight']:
+            rx = self.inputs['region'].width - w
+            ry = self.inputs['region'].height - h
+            if self.inputs['centerWeight'] is not None:
                 fn = self.inputs['centerWeight'].outputs['function']
-                rx = self.inputs['region'].width - w
-                ry = self.inputs['region'].height - h
                 xWeights = {i: fn( i / (float( rx ) - 1 ) * 180.0 ) for i in range( rx )}
                 yWeights = {i: fn( i / (float( ry ) - 1 ) * 180.0 ) for i in range( ry )}
                 x = utils.weightedChoice( xWeights.items() )
                 y = utils.weightedChoice( yWeights.items() )
             else:
-                x = random.randint( 0, self.inputs['region'].width - w )
-                y = random.randint( 0, self.inputs['region'].height - h )
+                x = random.randint( 0, rx )
+                y = random.randint( 0, ry )
 
             # Check for overlap with previous rooms.
             region = Region( x, y, x + w, y + h )

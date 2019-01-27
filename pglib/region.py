@@ -21,6 +21,9 @@ class Region( object ):
         self.leftChild = None
         self.rightChild = None
 
+    def __copy__( self ):
+        return self.__class__( self.x1, self.y1, self.x2, self.y2 )
+
     def __str__( self ):
        return str( self.x1 ) + ', ' + str( self.y1 ) + ', ' + str( self.x2 ) + ', ' + str( self.y2 )
 

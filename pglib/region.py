@@ -78,12 +78,10 @@ class Region( object ):
         )
 
     def inflate( self, d ):
-        return Region( 
-            self.x1 - d, 
-            self.y1 - d, 
-            self.x2 + d, 
-            self.y2 + d
-        )
+        self.x1 -= d
+        self.y1 -= d 
+        self.x2 += d 
+        self.y2 += d
 
     def split( self, minLeafSize ):
 

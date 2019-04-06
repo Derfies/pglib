@@ -4,7 +4,7 @@ import utils
 from region import Region
 
 
-def randomRegions( pRegion, minSize, maxSize, maxIterations, intersect=False, centerWeight=None ):
+def randomRegions( pRegion, minSize, maxSize, maxIterations, intersect=False, centerWeight=None, **kwargs ):
     regions = []
     for i in xrange( maxIterations ):
 
@@ -28,7 +28,7 @@ def randomRegions( pRegion, minSize, maxSize, maxIterations, intersect=False, ce
             y = random.randint( 0, ry )
 
         # Check for overlap with previous rooms.
-        region = Region( x, y, x + w, y + h )
+        region = Region( x, y, x + w, y + h, **kwargs )
         if intersect:
             regions.append( region )
         else:

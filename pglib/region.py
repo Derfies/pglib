@@ -2,8 +2,8 @@ import random
 
 import numpy as np
 
-import utils
 from const import *
+from geometry import Point
 
 
 class Region( object ):
@@ -21,6 +21,17 @@ class Region( object ):
         self.leftChild = None
         self.rightChild = None
 
+    def __eq__( self, other ):
+        return (
+            self.x1 == other.x1 and 
+            self.y1 == other.y1 and
+            self.y2 == other.y2 and
+            self.y2 == other.y2
+        )
+
+    def __hash__( self ):
+        return hash( (self.x1, self.y1, self.x2, self.y2) )
+
     def __copy__( self ):
         return self.__class__( self.x1, self.y1, self.x2, self.y2 )
 
@@ -29,17 +40,17 @@ class Region( object ):
 
     @property
     def width( self ):
-        return abs( self.x2 - self.x1 )
+        return self.x2 - self.x1
 
     @property
     def height( self ):
-        return abs( self.y2 - self.y1 )
+        return self.y2 - self.y1
 
     @property
     def centre( self ):
         x = (self.x1 + self.x2) / 2
         y = (self.y1 + self.y2) / 2
-        return x, y
+        return Point( x, y )
 
     def get2dArray( self ):
         return [
@@ -62,12 +73,20 @@ class Region( object ):
         )
 
     def touches( self, other ):
-        return (
-            self.x1 <= other.x2 and 
-            self.x2 >= other.x1 and
-            self.y1 <= other.y2 and 
-            self.y2 >= other.y1
-        )
+        if isinstance( other, self.__class__ ):
+            return ( 
+                self.x1 <= other.x2 and 
+                self.x2 >= other.x1 and
+                self.y1 <= other.y2 and 
+                self.y2 >= other.y1
+            )
+        else:
+            return (
+                self.x1 <= other.x and 
+                self.x2 >= other.x and
+                self.y1 <= other.y and
+                self.y2 >= other.y
+            )
 
     def encloses( self, other ):
         return ( 
@@ -189,7 +208,6 @@ class Region( object ):
         return self.islands
 
     def getRemainingArea( self, region, direction ):
-
         """
         Return a rect describing the area adjacent to the given region in the 
         given direction.

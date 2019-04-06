@@ -1,54 +1,34 @@
 import random
 
 from region import Region
-from uberNode import UberNode
 
 
-MIN_LEAF_SIZE = 6
-MAX_LEAF_SIZE = 20
+def bspRegions( pRegion, minSize, maxSize ):
 
+    """
+    Adapted from https://gamedevelopment.tutsplus.com/tutorials/how-to-use-bsp-trees-to-generate-game-maps--gamedev-12268
+    """
 
-class BspRegions( UberNode ):
+    leaves = []
 
-    def __init__( self ):
-        UberNode.__init__( self, inputs=[
-            'region',
-        ], outputs=[
-            'regions'
-        ] )
+    # First, create a leaf to be the 'root' of all leaves.
+    leaves.append( pRegion )
 
-    def evaluate( self ):
-
-        """
-        Adapted from https://gamedevelopment.tutsplus.com/tutorials/how-to-use-bsp-trees-to-generate-game-maps--gamedev-12268
-        """
-
-        leaves = []
-
-        # First, create a leaf to be the 'root' of all leaves.
-        root = Region( 
-            self.inputs['region'].x1, 
-            self.inputs['region'].y1,
-            self.inputs['region'].x2, 
-            self.inputs['region'].y2
-        )
-        leaves.append( root )
-
-        # We loop through every leaf in our cector over and over again, until no more leaves can be split.
-        didSplit = True
-        while didSplit:
-            didSplit = False
-            for l in leaves:
-                if l.leftChild is None and l.rightChild is None: # if this Leaf is not already split...
+    # We loop through every leaf in our cector over and over again, until no more leaves can be split.
+    didSplit = True
+    while didSplit:
+        didSplit = False
+        for l in leaves:
+            if l.leftChild is None and l.rightChild is None: # if this Leaf is not already split...
+            
+                # If this Leaf is too big, or 75% chance...
+                if l.width > maxSize or l.height > maxSize or random.uniform( 0, 1 ) > 0.25:
                 
-                    # If this Leaf is too big, or 75% chance...
-                    if l.width > MAX_LEAF_SIZE or l.height > MAX_LEAF_SIZE or random.uniform( 0, 1 ) > 0.25:
+                    if l.split( minSize ): # split the Leaf!
                     
-                        if l.split( MIN_LEAF_SIZE ): # split the Leaf!
-                        
-                            # If we did split, push the child leafs to the Vector so we can loop into them next
-                            leaves.append( l.leftChild )
-                            leaves.append( l.rightChild )
-                            didSplit = True
+                        # If we did split, push the child leafs to the Vector so we can loop into them next
+                        leaves.append( l.leftChild )
+                        leaves.append( l.rightChild )
+                        didSplit = True
 
-        self.outputs['regions'] = leaves
+    return leaves

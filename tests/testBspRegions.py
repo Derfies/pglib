@@ -1,5 +1,9 @@
-from pglib import utils, Region, randomRegions
+from pglib import utils, Region, bspRegions
 from nodeBoxApplication import NodeBoxApplication
+
+
+MIN_LEAF_SIZE = 6
+MAX_LEAF_SIZE = 20
 
 
 class App( NodeBoxApplication ):
@@ -8,7 +12,7 @@ class App( NodeBoxApplication ):
         pRegion = Region( 0, 0, self.width / self.gridSpacing, self.height / self.gridSpacing )
         return [
             self.regionToRect( region, fill=utils.getRandomColour( a=1 ) )
-            for region in randomRegions( pRegion, 5, 10, 300, False )
+            for region in bspRegions( pRegion, MIN_LEAF_SIZE, MAX_LEAF_SIZE )
         ]
 
 

@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 from const import *
-from geometry import Point
+from geometry import Point2d
 
 
 class Region( object ):
@@ -50,7 +50,7 @@ class Region( object ):
     def centre( self ):
         x = (self.x1 + self.x2) / 2
         y = (self.y1 + self.y2) / 2
-        return Point( x, y )
+        return Point2D( x, y )
 
     def get2dArray( self ):
         return [

@@ -1,20 +1,20 @@
-class POS_Y( object ):
-    numpyRot = 0
+class POS_Y(object):
+    numpy_rot = 0
     sign = 1
     dx, dy = 0, 1
 
-class POS_X( object ):
-    numpyRot = 1
+class POS_X(object):
+    numpy_rot = 1
     sign = 1
     dx, dy = 1, 0
 
-class NEG_Y( object ):
-    numpyRot = 2
+class NEG_Y(object):
+    numpy_rot = 2
     sign = -1
     dx, dy = 0, -1
 
-class NEG_X( object ):
-    numpyRot = 3
+class NEG_X(object):
+    numpy_rot = 3
     sign = -1
     dx, dy = -1, 0
 

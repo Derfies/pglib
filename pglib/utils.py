@@ -4,26 +4,38 @@ import random
 from const import *
 
 
-def getRandomColour( a=0.25 ):
-    r = random.uniform( 0.0, 1.0 )
-    g = random.uniform( 0.0, 1.0 )
-    b = random.uniform( 0.0, 1.0 )
+def get_random_colour(a=0.25):
+    r = random.uniform(0.0, 1.0)
+    g = random.uniform(0.0, 1.0)
+    b = random.uniform(0.0, 1.0)
     return r, g, b, a
 
 
-def getRandomDirection( directions=None ):
+def get_random_direction(directions=None):
     directions = directions or DIRECTIONS
-    idx = random.randint( 0, len( directions ) - 1 )
+    idx = random.randint(0, len(directions) - 1)
     return directions[idx]
 
 
-def weightedChoice( choices ):
-    values, weights = zip( *choices )
+def get_weighted_choice(choices):
+    values, weights = zip(*choices)
     total = 0
-    cumWeights = []
+    cum_weights = []
     for weight in weights:
         total += weight
-        cumWeights.append( total )
+        cum_weights.append(total)
     x = random.random() * total
-    i = bisect.bisect( cumWeights, x )
+    i = bisect.bisect(cum_weights, x)
     return values[i]
+
+
+def get_random_element(list_):
+    idx = random.randint(0, len(list_) - 1)
+    return list_[idx]
+
+
+def get_random_bool():
+    if random.randint(0, 1):
+        return True
+    else:
+        return False

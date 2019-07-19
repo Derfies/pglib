@@ -9,12 +9,12 @@ EAST = (1, 0)
 WEST = (-1, 0)
 
 
-def carve( region, x, y ):
+def carve(region, x, y):
     region.matrix[x][y] = 0
     region.matrix[x][y] = 0
 
 
-def canCarve( region, pos, dir ):
+def can_carve(region, pos, dir):
     '''
     gets whether an opening can be carved at the location
     adjacent to the cell at (pos) in the (dir) direction.
@@ -35,46 +35,46 @@ def canCarve( region, pos, dir ):
     return region.matrix[x][y] != 0
 
 
-def mazeGeneration( pRegion, windingPercent=0.1 ):
+def maze_generation(p_region, winding_percent=0.1):
 
     cells = []
-    lastDirection = None
+    last_direction = None
 
-    #start = (random.randint( 0, pRegion.width ), random.randint( 0, pRegion.height ) )
+    #start = (random.randint(0, p_region.width), random.randint(0, p_region.height))
     start = (1, 1)
-    carve( pRegion, start[0], start[1] )
+    carve(p_region, start[0], start[1])
 
-    cells.append( start )
+    cells.append(start)
 
     while cells:
         cell = cells[-1]
 
         # See if any adjacent cells are open.
-        unmadeCells = set()
+        unmade_cells = set()
         for direction in [NORTH, SOUTH, EAST, WEST]:
-            if canCarve( pRegion, cell, direction ):
-                unmadeCells.add( direction )
+            if can_carve(p_region, cell, direction):
+                unmade_cells.add(direction)
 
-        if unmadeCells:
+        if unmade_cells:
             
             # Prefer to carve in the same direction, when
             # it isn't necessary to do otherwise.
-            if lastDirection in unmadeCells and random.random() > windingPercent:
-                direction = lastDirection
+            if last_direction in unmade_cells and random.random() > winding_percent:
+                direction = last_direction
             else:
-                direction = unmadeCells.pop()
+                direction = unmade_cells.pop()
 
-            newCell = (cell[0] + direction[0], cell[1] + direction[1])
-            carve( pRegion, newCell[0], newCell[1] )
+            new_cell = (cell[0] + direction[0], cell[1] + direction[1])
+            carve(p_region, new_cell[0], new_cell[1])
 
-            newCell = (cell[0] + direction[0] * 2, cell[1] + direction[1] * 2 )
-            carve( pRegion, newCell[0], newCell[1] )
-            cells.append( newCell )
+            new_cell = (cell[0] + direction[0] * 2, cell[1] + direction[1] * 2)
+            carve(p_region, new_cell[0], new_cell[1])
+            cells.append(new_cell)
 
-            lastDirection = direction
+            last_direction = direction
 
         else:
 
             # No adjacent uncarved cells
             cells.pop()
-            lastDirection = None
+            last_direction = None

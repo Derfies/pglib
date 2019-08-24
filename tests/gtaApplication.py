@@ -7,6 +7,9 @@ from functools import partial
 import nodebox.graphics as nbg
 
 import pglib
+from pglib import utils
+from pglib.region import Region
+from pglib.randomregions import random_regions
 from pglib.const import *
 from pglib.weights import SineWeight
 from nodeboxapplication import NodeBoxApplication
@@ -15,8 +18,8 @@ from sweepTest01 import Sweep
 
 
 GRID_SPACING = 10
-SCREEN_WIDTH = 1080
-SCREEN_HEIGHT = 1080
+WIDTH = 1080
+HEIGHT = 1080
 
 
 class GtaApplication(NodeBoxApplication):
@@ -25,13 +28,13 @@ class GtaApplication(NodeBoxApplication):
 
         drawFns = []
         
-        #dw = DrunkardsWalk(SCREEN_WIDTH / GRID_SPACING, SCREEN_HEIGHT / GRID_SPACING, maxIterations=100, stepLength=10)
+        #dw = DrunkardsWalk(WIDTH / GRID_SPACING, HEIGHT / GRID_SPACING, maxIterations=100, stepLength=10)
         #dw.generateLevel()
 
         grid = 40
-        pRegion = pglib.Region(0, 0, SCREEN_WIDTH / grid, SCREEN_HEIGHT / grid)
+        pRegion = Region(0, 0, WIDTH / grid, HEIGHT / grid)
         sineWeight = SineWeight(1, invert=True)
-        regions = pglib.random_regions(pRegion, 5, 20, 30, intersect=True, center_weight=sineWeight)
+        regions = random_regions(pRegion, 5, 20, 30, intersect=True, center_weight=sineWeight)
         
         for region in regions:
             colour = pglib.utils.get_random_colour(a=0.05)
@@ -47,7 +50,7 @@ class GtaApplication(NodeBoxApplication):
         lr = sorted(verts, key=lambda v: math.sqrt(pow(v.x, 2) + pow(v.y, 2)))
         drawFns.append(partial(nbg.ellipse, lr[0].x * grid, lr[0].y * grid, 25, 25, fill=(0,1,0,1)))
         drawFns.append(partial(nbg.ellipse, lr[-1].x * grid, lr[-1].y * grid, 25, 25, fill=(0,1,0,1)))
-        ud = sorted(verts, key=lambda v: math.sqrt(pow(v.x, 2) + pow(SCREEN_HEIGHT / grid - v.y, 2)))
+        ud = sorted(verts, key=lambda v: math.sqrt(pow(v.x, 2) + pow(HEIGHT / grid - v.y, 2)))
         drawFns.append(partial(nbg.ellipse, ud[0].x * grid, ud[0].y * grid, 25, 25, fill=(0,1,0,1)))
         drawFns.append(partial(nbg.ellipse, ud[-1].x * grid, ud[-1].y * grid, 25, 25, fill=(0,1,0,1)))
 
@@ -82,4 +85,4 @@ class GtaApplication(NodeBoxApplication):
 
 
 if __name__ == '__main__':
-    GtaApplication(SCREEN_WIDTH, SCREEN_HEIGHT, GRID_SPACING)
+    GtaApplication(WIDTH, HEIGHT, GRID_SPACING)

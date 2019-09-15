@@ -1,4 +1,3 @@
-import copy
 import pyglet
 import pygraph
 import logging
@@ -21,103 +20,128 @@ WIN_HEIGHT = 480
 
 
 class Line(object):
-    
-    def __init__(self, x1, y1, x2, y2, stroke, strokewidth, id_):
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
-        self.stroke = stroke
-        self.strokewidth = strokewidth
-        self.id = id_
 
-    def draw(self, font_size=12, text_offset=None):
+    def draw(self, **kwargs):
+        offset = kwargs.pop('offset', (0, 0))
         line(
-            self.x1 * GRID + OFFSET, 
+            self.x1 * GRID + OFFSET + offset[0], 
             WIN_HEIGHT - (self.y1 * GRID + OFFSET),  
-            self.x2 * GRID + OFFSET,  
-            WIN_HEIGHT - (self.y2 * GRID + OFFSET), 
-            stroke=self.stroke, 
-            strokewidth=self.strokewidth
+            self.x2 * GRID + OFFSET + offset[0],  
+            WIN_HEIGHT - (self.y2 * GRID + OFFSET),
+            **kwargs
         )
 
-        text_offset = text_offset or (-20, 0)
-        label = pyglet.text.Label(str(self.id),
+        text_offset = kwargs.pop('text_offset', (0, 0))
+        label = pyglet.text.Label(
+            str(self.id),
             font_name='Times New Roman',
-            font_size=font_size,
+            font_size=kwargs.pop('font_size', 12),
             x=self.x1 * GRID + OFFSET + text_offset[0], 
             y=WIN_HEIGHT - (self.y1 * GRID + OFFSET + text_offset[1]), 
             anchor_x='center', anchor_y='center'
         )
         label.draw()
 
-    # def copy(self):
-    #     return self.__class__(
-    #         self.x1,
-    #         self.y1,
-    #         self.x2,
-    #         self.y2,
-    #         self.stroke,
-    #         self.strokewidth,
-    #         self.id,
-    #     )
-
 
 class Vertex(Line):
 
-    def __init__(self, x, y, width, id_, **kwargs):
-        x1, x2 = x, x + width
-        y1, y2 = y, y
-        super(Vertex, self).__init__(x1, y1, x2, y2, VERTEX_STROKE, VERTEX_STROKEWIDTH, id_, **kwargs)
+    def __init__(self, x, y, width, id_):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.id = id_
 
         self.edges = []
 
     @property
-    def width(self):
-        return self.x2 - self.x1
+    def x1(self):
+        return self.x
 
-    @width.setter
-    def width(self, width):
-        self.x2 = self.x1 + width
-
-    @property
-    def x(self):
-        return self.x1
+    @x1.setter
+    def x1(self, x1):
+        self.x = x1
 
     @property
-    def y(self):
-        return self.y1
+    def y1(self):
+        return self.y
+
+    @property
+    def x2(self):
+        return self.x + self.width
+
+    @x2.setter
+    def x2(self, x2):
+        self.width = x2 - self.x1
+
+    @property
+    def y2(self):
+        return self.y
 
     def overlaps(self, other):
         return self.x1 < other.x2 and self.x2 > other.x1
 
     def is_connected(self, other):
         return any([
-            self in edge.vertices 
+            self in (edge.v1, edge.v2) 
             for edge in other.edges
         ])
 
     def collides_with_edge(self, edge):
         return edge.x > self.x1 and edge.x < self.x2
 
+    def draw(self, **kwargs):
+        super(Vertex, self).draw(
+            stroke=VERTEX_STROKE, 
+            strokewidth=VERTEX_STROKEWIDTH,
+            text_offset=(-20, 0),
+        )
+
+    def copy(self):
+        return self.__class__(
+            self.x,
+            self.y,
+            self.width,
+            self.id
+        )
 
         
 class Edge(Line):
 
-    #def __init__(self, x, y1, y2, id_, **kwargs):
     def __init__(self, v1, v2):
-        x1, x2 = v2.x + 0.5, v2.x + 0.5
-        y1, y2 = v1.y, v2.y
-        #y1, y2 = y, y + height
-        super(Edge, self).__init__(x1, y1, x2, y2, EDGE_STROKE, EDGE_STROKEWIDTH, str(v1.id) + '|' + str(v2.id))
-
-        self.vertices = (v1, v2)
+        self.v1 = v1
+        self.v2 = v2
+        self.x = self.v1.x
         v1.edges.append(self)
         v2.edges.append(self)
 
     @property
-    def x(self):
-        return self.x1
+    def id(self):
+        return str(self.v1.id) + '|' + str(self.v2.id)
+
+    @property
+    def x1(self):
+        return self.x
+
+    @property
+    def y1(self):
+        return self.v1.y1
+
+    @property
+    def x2(self):
+        return self.x
+
+    @property
+    def y2(self):
+        return self.v2.y2
+
+    def draw(self, **kwargs):
+        super(Edge, self).draw(
+            stroke=EDGE_STROKE,
+            strokewidth=EDGE_STROKEWIDTH,
+            offset=(GRID / 2, 0),
+            text_offset=(0, -15),
+            font_size=8,
+        ) 
 
 
 class VisibilityGraphGenerator(object):
@@ -131,12 +155,20 @@ class VisibilityGraphGenerator(object):
         self.vertices = {}
         self.edges = []
 
-    def push_right(self, pos, amt):
+    def widen_from(self, pos, amt=1):
+        logger.info('Widen from: {} @ {}'.format(pos, amt))
         for vertex in self.vertices.values():
             if pos < vertex.x2:
                 vertex.x2 += amt
-            if pos <= vertex.x1:
+                logger.info('Vertex: {}.x2 -> {}'.format(vertex.id, vertex.x2))
+            if pos < vertex.x1:
                 vertex.x1 += amt
+                logger.info('Vertex: {}.x1 -> {}'.format(vertex.id, vertex.x1))
+
+        for edge in self.edges:
+            if pos <= edge.x:
+                edge.x += amt
+                logger.info('Edge: {}.x2 -> {}'.format(edge.id, edge.x2))
 
     def process_node(self, nidx):
 
@@ -172,22 +204,25 @@ class VisibilityGraphGenerator(object):
                 new_x = conn_vertex.x1 + 1
                 test_vertex = vertex.copy()
                 test_vertex.width += new_x
-                for vertex in self.vertices.values():
-                    for edge in vertex.edges:
-                        print test_vertex.collides_with_edge(edge)
 
-                #if collides:
-                #    graph.Lengthen()
-                logger.info('Extending: {} to: {}'.format(nidx, new_x))
+                coll_x = None
+                for v in self.vertices.values():
+                    for edge in v.edges:
+                        if test_vertex.collides_with_edge(edge):
+                            logger.info('collide: {} {}'.format(v.id, edge.id))
+                            coll_x = edge.x
+
+                
+                if coll_x:
+                    self.widen_from(coll_x)
+                
+                logger.info('Extending vertex: {} to: {}'.format(nidx, new_x))
                 vertex.x2 = new_x
 
             # Create the edge to the original vertex.
             if not conn_vertex.is_connected(vertex):
                 logger.info('Creating edge: {} -> {}'.format(nidx, conn_nidx))
-                #edge = Edge(conn_vertex.x1, vertex.y1, conn_vertex.y1, str(nidx) + '|' + str(conn_nidx))
-                #edge.vertices = (vertex, conn_vertex)
-                edge = Edge(vertex, conn_vertex)
-                
+                edge = Edge(conn_vertex, vertex)
                 self.edges.append(edge)
             # else:
 

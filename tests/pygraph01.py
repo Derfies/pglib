@@ -45,33 +45,34 @@ class Line(object):
 
 class Vertex(Line):
 
-    def __init__(self, x, y, width, id_):
-        self.x = x
+    def __init__(self, x1, x2, y, id_):
+        self.x1 = x1
+        self.x2 = x2
         self.y = y
-        self.width = width
+        #self.width = width
         self.id = id_
 
         self.edges = []
 
-    @property
-    def x1(self):
-        return self.x
+    # @property
+    # def x1(self):
+    #     return self.x
 
-    @x1.setter
-    def x1(self, x1):
-        self.x = x1
+    # @x1.setter
+    # def x1(self, x1):
+    #     self.x = x1
 
     @property
     def y1(self):
         return self.y
 
-    @property
-    def x2(self):
-        return self.x + self.width
+    # @property
+    # def x2(self):
+    #     return self.x + self.width
 
-    @x2.setter
-    def x2(self, x2):
-        self.width = x2 - self.x1
+    # @x2.setter
+    # def x2(self, x2):
+    #     self.width = x2 - self.x1
 
     @property
     def y2(self):
@@ -105,11 +106,22 @@ class Vertex(Line):
 
     def copy(self):
         return self.__class__(
-            self.x,
+            self.x1,
+            self.x2,
             self.y,
-            self.width,
             self.id
         )
+    def get_next_available_column(self):
+        #print ''
+        ##col_x = None
+        edge_xs = [edge.x for edge in self.edges]
+        for x in range(self.x1, self.x2):
+            #print x, '->', x in edge_xs
+            if x not in edge_xs:
+                return x
+        return None
+        #for edge in self.edges:
+#
 
         
 class Edge(Line):
@@ -171,104 +183,121 @@ class VisibilityGraphGenerator(object):
             edges.extend(vertex.edges)
         return edges
 
-    def widen_from(self, pos, amt=1):
-        logger.info('Widen from: {}'.format(pos))
+    def insert_column(self, pos, amt=1):
+        #logger.info('Widen from: {}'.format(pos))
         for vertex in self.vertices.values():
-            if pos < vertex.x1:
-                vertex.x1 += amt
-                logger.info('Vertex: {}.x1 -> {}'.format(vertex.id, vertex.x1))
-            elif pos < vertex.x2:
+            if pos < vertex.x2:
                 vertex.x2 += amt
-                logger.info('Vertex: {}.x2 -> {}'.format(vertex.id, vertex.x2))
-            logger.info('Vertex : {}.width -> {}'.format(vertex.id, vertex.width))
-
+                if pos <= vertex.x1:
+                    vertex.x1 += amt
         for edge in self.edges:
             if pos <= edge.x:
                 edge.x += amt
-                logger.info('Edge: {}.x2 -> {}'.format(edge.id, edge.x2))
+                #logger.info('Edge: {}.x2 -> {}'.format(edge.id, edge.x2))
+
+    def _create_vertex(self, x, y, nidx):
+        logger.info('    Creating vertex: {}'.format(nidx))
+        v = Vertex(x, x + 1, self.y, nidx)
+        self.vertices[nidx] = v
+        self.y += 1
+        return v
 
     def process_node(self, nidx):
 
-        logger.info('{} Process: {}'.format('*' * 5, nidx))
-        
-        neighbours = self.graph.neighbors(nidx)
-
-        # Create the vertex.
-        if nidx not in self.vertices:
-            logger.info('Creating vertex: {}'.format(nidx))
-            self.vertices[nidx] = Vertex(0, self.y, 1, nidx)
-            self.y += 1
+        logger.info('Process vertex: {}'.format(nidx))
         vertex = self.vertices[nidx]
 
-        # Create verts that are connected to the vert being processed.
-        x = vertex.x1
+        # Iterate connected nodes.
+        neighbours = self.graph.neighbors(nidx)
+
+        # HAXXOR for tripyr
+        # TODO: Sort edges!!
+        if nidx == 2:
+            neighbours = [1, 4, 3]
+            print '->', neighbours
+            #idx = neighbours.index(2)
+
+
         for conn_nidx in neighbours:
-            logger.info('Process neighbour: {}'.format(conn_nidx))
 
-            # Create the connected vertex.
+            #
+            do_vertex = do_edge = False 
             if conn_nidx not in self.vertices:
-                logger.info('Creating vertex: {}'.format(conn_nidx))
-                self.vertices[conn_nidx] = Vertex(x, self.y, 1, conn_nidx)
-                self.y += 1
-                x += 1
-            conn_vertex = self.vertices[conn_nidx]
+                do_vertex = do_edge = True
+            elif not self.vertices[conn_nidx].is_connected(vertex):
+                do_edge = True
 
-            # Ensure the neighbour is at least as long as to create an overlap.
-            foo = max(conn_vertex.x2, vertex.x1 + 1)
-            if foo != conn_vertex.x2:
-                conn_vertex.x2 = foo
-                logger.info('Lengthen: {}'.format(conn_vertex.x2))
+            if do_vertex or do_edge:
 
-            # Ensure the two vertices overlap.
-            if not vertex.overlaps(conn_vertex):
+                logger.info('    Process neighbour: {}'.format(conn_nidx))
 
-                logger.info('Want to extend vertex: {}'.format(nidx))
+                # Create the neighboring vertex.
+                x = vertex.get_next_available_column()
+                logger.info('    Next available column idx: {}'.format(x))
 
-                # We need to extend the vertex so there's an overlap point to
-                # draw and edge, but there might be an edge in the way.
-                new_x = conn_vertex.x1 + 1
-                test_vertex = vertex.copy()
-                test_vertex.width += new_x
+                # Ensure the neighbour is at least as long as to create an overlap.
+                if x is None:
+                    
+                    # Figure out if where to widen graph here...
+                    x = vertex.x2
 
-                coll_x = None
+                    # Check collision here
+                    do_widen = False
+                    test_vertex = vertex.copy()
+                    test_vertex.x2 += 1
+                    for edge in sorted(self.get_edges(), key=lambda e: e.x):
+                            #logger.info('test: {}'.format(edge.id))
+                            if test_vertex.collides_with_edge(edge):
+                                logger.info('Collides with edge: {} @ {}'.format(edge.id, edge.x))
+                                #coll_x = edge.x
+                                do_widen = True
+                                break
+                    if do_widen:
+                        logger.info('Widen graph at: {}'.format(x))
+                        self.insert_column(x)
 
-                #for v in self.vertices.values():
-                #    for edge in v.edges:
-                for edge in sorted(self.get_edges(), key=lambda e: e.x):
-                        #logger.info('test: {}'.format(edge.id))
-                        if test_vertex.collides_with_edge(edge):
-                            logger.info('Collides with edge: {} @ {}'.format(edge.id, edge.x))
-                            coll_x = edge.x
-                            break
-                            #return True
+                if do_vertex:
+                    self._create_vertex(x, self.y, conn_nidx)
+
+                # Ensure the two vertices overlap.
+                conn_vertex = self.vertices[conn_nidx]
+                vertex.x1 = min(vertex.x1, x)
+                vertex.x2 = max(vertex.x2, x + 1)
+                conn_vertex.x1 = min(conn_vertex.x1, x)
+                conn_vertex.x2 = max(conn_vertex.x2, x + 1)
+
+                # Create the edge to the original node.
+                if do_edge:
+                    #edge_x = max(conn_vertex.x1, vertex.x1)
+                    logger.info('    Creating edge: {}|{} @ {}'.format(conn_nidx, nidx, x))
+                    edge = Edge(conn_vertex, vertex, x)
+                    self.edges.append(edge)
                 
-                if coll_x:
-                    self.widen_from(coll_x)
-                
-                logger.info('Extending vertex: {} to: {}'.format(nidx, new_x))
-                vertex.x2 = new_x
-
-            # Create the edge to the original vertex.
-            if not conn_vertex.is_connected(vertex):
-                logger.info('Creating edge: {}|{}'.format(conn_nidx, nidx))
-                edge = Edge(conn_vertex, vertex, max(conn_vertex.x1, vertex.x1))
-                self.edges.append(edge)
-
-            self.iters += 1
-
-            if self.iters > 4:
+            
+            if self.iters >= 4:
                 return True
+            self.iters += 1
 
         logger.info('')
 
     def run(self):
+
+        # Create the root node.
+        self._create_vertex(0, 1, 1)
+
+        #self._create_node(nidx, 0)
+        # print self.graph
+        # print self.graph.nodes.keys()
+        # print self.graph.get_node(1)
+        # for d in dir(self.graph):
+        #     print d
         #i = 0
         for nidx in pygraph.breadth_first_search(self.graph, root_node=1):
             result = self.process_node(nidx)
             if result:
                break
-            #i += 1
-            #if i > 1:
+            # i += 1
+            # if i > 1:
             #    break
 
 
@@ -355,7 +384,31 @@ tripyr.new_edge(4, 2)
 tripyr.new_edge(4, 3)
 tripyr.new_edge(4, 1)
 
+horrid = pygraph.UndirectedGraph()
+horrid.new_node()
+horrid.new_node()
+horrid.new_node()
+horrid.new_node()
+horrid.new_node()
+horrid.new_node()
+horrid.new_edge(1, 2)
+horrid.new_edge(1, 3)
+horrid.new_edge(1, 4)
+horrid.new_edge(2, 5)
+horrid.new_edge(2, 6)
+horrid.new_edge(3, 4)
+horrid.new_edge(3, 5)
+horrid.new_edge(4, 6)
+
 # Run the generator.
+# ln
+# fork
+# tri
+# square
+# rect
+# tee
+# tee2
+# tripyr
 graph_gen = VisibilityGraphGenerator(tripyr)
 graph_gen.run()
 

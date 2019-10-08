@@ -210,12 +210,15 @@ class VisibilityGraphGenerator(object):
         # Iterate connected nodes.
         neighbours = self.graph.neighbors(nidx)
 
-        # HAXXOR for tripyr
-        # TODO: Sort edges!!
-        if nidx == 2:
-            neighbours = [1, 4, 3]
-            print '->', neighbours
-            #idx = neighbours.index(2)
+        # TEST - Sort edge build order by what they have to connect with on the
+        # board. This helps build loops without crossing edges.
+        edge_pos = {}
+        for test_idx in pygraph.breadth_first_search(self.graph, root_node=nidx):
+
+            # Don't worry about verts we haven't processed yet.
+            if test_idx in self.vertices:
+                edge_pos[test_idx] = self.vertices[test_idx].x1
+        neighbours.sort(key=lambda x: -edge_pos.get(x, 0))
 
 
         for conn_nidx in neighbours:
@@ -246,10 +249,8 @@ class VisibilityGraphGenerator(object):
                     test_vertex = vertex.copy()
                     test_vertex.x2 += 1
                     for edge in sorted(self.get_edges(), key=lambda e: e.x):
-                            #logger.info('test: {}'.format(edge.id))
                             if test_vertex.collides_with_edge(edge):
                                 logger.info('Collides with edge: {} @ {}'.format(edge.id, edge.x))
-                                #coll_x = edge.x
                                 do_widen = True
                                 break
                     if do_widen:
@@ -259,16 +260,15 @@ class VisibilityGraphGenerator(object):
                 if do_vertex:
                     self._create_vertex(x, self.y, conn_nidx)
 
-                # Ensure the two vertices overlap.
+                # Ensure the two vertices overlap the column.
                 conn_vertex = self.vertices[conn_nidx]
                 vertex.x1 = min(vertex.x1, x)
                 vertex.x2 = max(vertex.x2, x + 1)
                 conn_vertex.x1 = min(conn_vertex.x1, x)
                 conn_vertex.x2 = max(conn_vertex.x2, x + 1)
 
-                # Create the edge to the original node.
+                # Create the edge in the column to the original node.
                 if do_edge:
-                    #edge_x = max(conn_vertex.x1, vertex.x1)
                     logger.info('    Creating edge: {}|{} @ {}'.format(conn_nidx, nidx, x))
                     edge = Edge(conn_vertex, vertex, x)
                     self.edges.append(edge)
@@ -409,7 +409,7 @@ horrid.new_edge(4, 6)
 # tee
 # tee2
 # tripyr
-graph_gen = VisibilityGraphGenerator(tripyr)
+graph_gen = VisibilityGraphGenerator(horrid)
 graph_gen.run()
 
 # Draw.

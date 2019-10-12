@@ -1,3 +1,5 @@
+import math
+
 import pyglet
 import pygraph
 import logging
@@ -49,30 +51,13 @@ class Vertex(Line):
         self.x1 = x1
         self.x2 = x2
         self.y = y
-        #self.width = width
         self.id = id_
 
         self.edges = []
 
-    # @property
-    # def x1(self):
-    #     return self.x
-
-    # @x1.setter
-    # def x1(self, x1):
-    #     self.x = x1
-
     @property
     def y1(self):
         return self.y
-
-    # @property
-    # def x2(self):
-    #     return self.x + self.width
-
-    # @x2.setter
-    # def x2(self, x2):
-    #     self.width = x2 - self.x1
 
     @property
     def y2(self):
@@ -88,13 +73,6 @@ class Vertex(Line):
         ])
 
     def collides_with_edge(self, edge):
-        # logger.info('    self.y: {}'.format(self.y))
-        # logger.info('    edge.y1: {}'.format(edge.y1))
-        # logger.info('    edge.y2: {}'.format(edge.y2))
-        # logger.info('    self.y > edge.y1: {}'.format(self.y > edge.y1))
-        # logger.info('    self.y < edge.y2: {}'.format(self.y < edge.y2))
-        # logger.info('    edge.x > self.x1: {}'.format(edge.x > self.x1))
-        # logger.info('    edge.x < self.x2: {}'.format(edge.x < self.x2))
         return self.y > edge.y1 and self.y < edge.y2 and edge.x > self.x1 and edge.x < self.x2
 
     def draw(self, **kwargs):
@@ -112,16 +90,11 @@ class Vertex(Line):
             self.id
         )
     def get_next_available_column(self):
-        #print ''
-        ##col_x = None
         edge_xs = [edge.x for edge in self.edges]
         for x in range(self.x1, self.x2):
-            #print x, '->', x in edge_xs
             if x not in edge_xs:
                 return x
         return None
-        #for edge in self.edges:
-#
 
         
 class Edge(Line):
@@ -139,7 +112,7 @@ class Edge(Line):
 
     @property
     def x1(self):
-        return self.x#(self.v1.x1 + self.v1.x2) / 2.0
+        return self.x
 
     @property
     def y1(self):
@@ -147,7 +120,7 @@ class Edge(Line):
 
     @property
     def x2(self):
-        return self.x#(self.v2.x1 + self.v2.x2) / 2.0
+        return self.x
 
     @property
     def y2(self):
@@ -167,15 +140,14 @@ class VisibilityGraphGenerator(object):
 
     def __init__(self, graph):
         self.graph = graph
-        
         self.y = 0
-        self.processed = []
-
         self.vertices = {}
         self.edges = []
-
-
         self.iters = 0
+
+    @property
+    def width(self):
+        return max([v.x2 for v in self.vertices.values()])
 
     def get_edges(self):
         edges = []
@@ -210,16 +182,31 @@ class VisibilityGraphGenerator(object):
         # Iterate connected nodes.
         neighbours = self.graph.neighbors(nidx)
 
+        edge_pos = {}
+        for neighbour in neighbours:
+            if neighbour in self.vertices and self.vertices[neighbour].is_connected(vertex):
+                continue
+            for test_idx in pygraph.breadth_first_search(self.graph, root_node=neighbour):
+                if test_idx == nidx or test_idx not in self.vertices or self.vertices[test_idx].is_connected(vertex):
+                    continue
+                
+                value = vertex.x2 - self.vertices[test_idx].x2
+                if math.copysign(1, value) < 0:
+                    value += self.width
+
+                edge_pos[neighbour] = value
+                break
+
         # TEST - Sort edge build order by what they have to connect with on the
         # board. This helps build loops without crossing edges.
-        edge_pos = {}
-        for test_idx in pygraph.breadth_first_search(self.graph, root_node=nidx):
+        # edge_pos = {}
+        # for test_idx in pygraph.breadth_first_search(self.graph, root_node=nidx):
 
-            # Don't worry about verts we haven't processed yet.
-            if test_idx in self.vertices:
-                edge_pos[test_idx] = self.vertices[test_idx].x1
-        neighbours.sort(key=lambda x: -edge_pos.get(x, 0))
-
+        #     # Don't worry about verts we haven't processed yet.
+        #     if test_idx in self.vertices:
+        #         edge_pos[test_idx] = self.vertices[test_idx].x1
+        #print nidx, '->', edge_pos
+        neighbours.sort(key=lambda x: edge_pos.get(x, 0), reverse=False)
 
         for conn_nidx in neighbours:
 
@@ -249,10 +236,10 @@ class VisibilityGraphGenerator(object):
                     test_vertex = vertex.copy()
                     test_vertex.x2 += 1
                     for edge in sorted(self.get_edges(), key=lambda e: e.x):
-                            if test_vertex.collides_with_edge(edge):
-                                logger.info('Collides with edge: {} @ {}'.format(edge.id, edge.x))
-                                do_widen = True
-                                break
+                        if test_vertex.collides_with_edge(edge):
+                            logger.info('Collides with edge: {} @ {}'.format(edge.id, edge.x))
+                            do_widen = True
+                            break
                     if do_widen:
                         logger.info('Widen graph at: {}'.format(x))
                         self.insert_column(x)
@@ -267,6 +254,14 @@ class VisibilityGraphGenerator(object):
                 conn_vertex.x1 = min(conn_vertex.x1, x)
                 conn_vertex.x2 = max(conn_vertex.x2, x + 1)
 
+                # HAXX
+                for edge in sorted(self.get_edges(), key=lambda e: e.x):
+                    if conn_vertex.collides_with_edge(edge):
+                        logger.info('conn_vertex collides with edge: {} @ {}'.format(edge.id, edge.x))
+                        conn_vertex.y = self.y
+                        self.y += 1
+                        break
+
                 # Create the edge in the column to the original node.
                 if do_edge:
                     logger.info('    Creating edge: {}|{} @ {}'.format(conn_nidx, nidx, x))
@@ -274,7 +269,7 @@ class VisibilityGraphGenerator(object):
                     self.edges.append(edge)
                 
             
-            if self.iters >= 4:
+            if self.iters >= 120:
                 return True
             self.iters += 1
 
@@ -283,22 +278,12 @@ class VisibilityGraphGenerator(object):
     def run(self):
 
         # Create the root node.
-        self._create_vertex(0, 1, 1)
-
-        #self._create_node(nidx, 0)
-        # print self.graph
-        # print self.graph.nodes.keys()
-        # print self.graph.get_node(1)
-        # for d in dir(self.graph):
-        #     print d
-        #i = 0
-        for nidx in pygraph.breadth_first_search(self.graph, root_node=1):
+        root_idx = 5
+        self._create_vertex(0, 1, root_idx)
+        for nidx in pygraph.breadth_first_search(self.graph, root_node=root_idx):
             result = self.process_node(nidx)
             if result:
                break
-            # i += 1
-            # if i > 1:
-            #    break
 
 
 # Build graph.
@@ -409,6 +394,7 @@ horrid.new_edge(4, 6)
 # tee
 # tee2
 # tripyr
+# horrid
 graph_gen = VisibilityGraphGenerator(horrid)
 graph_gen.run()
 

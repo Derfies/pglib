@@ -30,93 +30,84 @@ class Block(object):
     # segments in the block in the array |alpha| and returns true.
     # Otherwise it returns false.
     #
-    # |add_to_Att| first makes sure that the right side has no attachment 
-    # above |w0| (by flipping); when |add_to_Att| is called at least one 
+    # |add_to_att| first makes sure that the right side has no attachment 
+    # above |w0| (by flipping); when |add_to_att| is called at least one 
     # side has no attachment above |w0|.
-    # |add_to_Att| then adds the lists |Ratt| and |Latt| to the output list 
+    # |add_to_att| then adds the lists |Ratt| and |Latt| to the output list 
     # |Att| and records the placement of all segments in the block in |alpha|.
 
     def __init__(self, e, A):
         # list of attachments "ints"
-        self.Latt = []
-        self.Ratt = [] 
+        self.l_att = []
+        self.r_att = [] 
 
         # list of segments represented by their defining "edges"
-        self.Lseg = []
-        self.Rseg = [] 
+        self.l_seg = []
+        self.r_seg = [] 
 
-        self.Lseg.append(e)
-        self.Latt.extend(A)  # the other two lists are empty
-        #del A[:]
-
-    def __str__(self):
-        return (
-            '        Latt: ' + str(self.Latt.elements) + '\n' +
-            '        Ratt: ' + str(self.Ratt.elements) + '\n' + 
-            '        Lseg: ' + str(self.Lseg.elements) + '\n' +
-            '        Rseg: ' + str(self.Rseg.elements)
-        )
+        self.l_seg.append(e)
+        self.l_att.extend(A)  # the other two lists are empty
             
     def flip(self):
-        self.Ratt, self.Latt = self.Latt, self.Ratt
-        self.Rseg, self.Lseg = self.Lseg, self.Rseg
+        self.r_att, self.l_att = self.l_att, self.r_att
+        self.r_seg, self.l_seg = self.l_seg, self.r_seg
         
-    def left_interlace(self, S):
-        # Check for interlacing with the left side of the topmost block of |S|
-        return S and S[-1].Latt and self.Latt[-1] < S[-1].Latt[0]
+    def left_interlace(self, s):
+        # Check for interlacing with the left side of the topmost block of |s|
+        return s and s[-1].l_att and self.l_att[-1] < s[-1].l_att[0]
 
-    def right_interlace(self, S):
-        # Check for interlacing with the right side of the topmost block of |S|
-        return S and S[-1].Ratt and self.Latt[-1] < S[-1].Ratt[0]
+    def right_interlace(self, s):
+        # Check for interlacing with the right side of the topmost block of |s|
+        return s and s[-1].r_att and self.l_att[-1] < s[-1].r_att[0]
             
-    def combine(self, Bprime):
-        # add block Bprime to the rear of |this| block
-        self.Latt.extend(Bprime.Latt)
-        self.Ratt.extend(Bprime.Ratt)
-        self.Lseg.extend(Bprime.Lseg)
-        self.Rseg.extend(Bprime.Rseg)
+    def combine(self, block):
+        # add block to the rear of |this| block
+        self.l_att.extend(block.l_att)
+        self.r_att.extend(block.r_att)
+        self.l_seg.extend(block.l_seg)
+        self.r_seg.extend(block.r_seg)
         
     def clean(self, dfs_num_w, alpha, dfs_num):
-        #print 'CLEAN'
+
         # remove all attachments to |w|; there may be several
-        while self.Latt and self.Latt[0] == dfs_num_w:
-            self.Latt.pop(0)
-        while self.Ratt and self.Ratt[0] == dfs_num_w:
-            self.Ratt.pop(0)
-        if self.Latt or self.Ratt:
+        while self.l_att and self.l_att[0] == dfs_num_w:
+            self.l_att.pop(0)
+        while self.r_att and self.r_att[0] == dfs_num_w:
+            self.r_att.pop(0)
+        if self.l_att or self.r_att:
             return False
             
         # |Latt| and |Ratt| are empty;
         #  we record the placement of the subsegments in |alpha|.
-        for e in self.Lseg:
+        for e in self.l_seg:
             alpha[e] = LEFT
-            #print '     e:', e, 'is LEFT'
-        for e in self.Rseg:
+
+        for e in self.r_seg:
             alpha[e] = RIGHT 
-            #print '     e:', e, 'is RIGHT'
+            
         return True
         
-    def add_to_Att(self, Att, dfs_num_w0, alpha, dfs_num):
+    def add_to_att(self, Att, dfs_num_w0, alpha, dfs_num):
 
         # add the block to the rear of |Att|. Flip if necessary
-        if self.Ratt and self.Ratt[0] > dfs_num_w0:
+        if self.r_att and self.r_att[0] > dfs_num_w0:
             #print 'add to att flip'
             self.flip()
 
-        Att.extend(self.Latt)
-        del self.Latt[:]
-        Att.extend(self.Ratt) 
-        del self.Ratt[:]
+        Att.extend(self.l_att)
+        del self.l_att[:]
+        Att.extend(self.r_att) 
+        del self.r_att[:]
 
         # This needs some explanation. 
         # Note that |Ratt| is either empty or {w0}.
         # Also if |Ratt| is non-empty then all subsequent
         # sets are contained in {w0}. 
         # So we indeed compute an ordered set of attachments.
-        for e in self.Lseg:
+        for e in self.l_seg:
             alpha[e] = LEFT
             #print '     e:', e, 'is LEFT'
-        for e in self.Rseg:
+        for e in self.r_seg:
             alpha[e] = RIGHT
             #print '     e:', e, 'is RIGHT'
 
@@ -135,6 +126,7 @@ class ReorderEdgesDfsIterator(object):
         self.del_edges = []
 
     def visit_node(self, x):
+        print x, '->', self.dfs_num
         self.dfs_nums[x] = self.dfs_num
         self.lowpt1s[x] = self.lowpt2s[x] = self.dfs_num
         self.visited.add(x)
@@ -143,9 +135,7 @@ class ReorderEdgesDfsIterator(object):
         # Calculate low point 1.
         edges = list(self.g.edges(x))
         edges.sort(key=lambda x: (len(x[1]), x[1]))
-        #if x == 'N3':
-        #    edges = [('N3', 'N4'), ('N3', 'N10'), ('N3', 'N2')]
-        print x, '->', edges
+        #print x, '->', edges
         for edge in edges:
             y = edge[1]
             if y not in self.visited:
@@ -193,6 +183,155 @@ def sort_edges(weights):
     return map(itemgetter(0), edges)
 
 
+class StronglyPlanarDfsIterator(object):
+
+    def __init__(self, g):
+        self.g = g
+
+        self.alpha = {}
+
+    def find_cycle(self, e0):
+        x, y = e0
+        e = list(self.g.edges(y))[0]
+        wk = y
+        
+        print '    cycle:'
+        print '        e0:', e0
+        print '        e: ', e
+
+        dfs_nums = self.g.nodes.data('dfs_num')
+        while dfs_nums[e[1]] > dfs_nums[wk]:  # e is a tree edge
+            wk = e[1]
+            e = list(self.g.edges(wk))[0]
+            print '        e: ', e
+        w0 = e[1]
+        print '        wk (last node on tree path):', wk
+        print '        w0 (back edge destination):', w0
+
+        w = wk
+
+        return x, w, w0
+
+    def visit_edge(self, edge, att):
+
+        x, w, w0 = self.find_cycle(edge)
+        
+        dfs_nums = self.g.nodes.data('dfs_num')
+        dfs_parents = self.g.nodes.data('dfs_parent')
+
+        
+
+
+        stack = []
+        while w != x:
+            for i, e in enumerate(list(self.g.edges(w))):
+
+                # No action for first edge.
+                if i == 0:
+                    continue
+
+                # TEST RECURSIVELY
+                # Let "e" be any edge leaving the spine. 
+                # We need to test whether "S(e)" is strongly planar 
+                # and if so compute its list |A| of attachments.
+                # If "e" is a tree edge we call our procedure recursively 
+                # and if "e" is a back edge then "S(e)" is certainly strongly 
+                # planar and |target(e)| is the only attachment.
+                # If we detect non-planarity we return false and free
+                # the storage allocated for the blocks of stack |S|.
+                a = []
+                if dfs_nums[w] < dfs_nums[e[1]]: 
+                    if not self.visit_edge(e, a):
+                        return False                    
+                else:
+                    a.append(dfs_nums[e[1]]) # a back edge
+                    
+                # UPDATE STACK |S| OF ATTACHMENTS
+                # The list |A| contains the ordered list of attachments 
+                # of segment "S(e)". 
+                # We create an new block consisting only of segment "S(e)" 
+                # (in its L-part) and then combine this block with the 
+                # topmost block of stack |S| as long as there is interlacing. 
+                # We check for interlacing with the L-part. 
+                # If there is interlacing then we flip the two sides of the 
+                # topmost block. 
+                # If there is still interlacing with the left side then the 
+                # interlacing graph is non-bipartite and we declare the graph 
+                # non-planar (and also free the storage allocated for the
+                # blocks).
+                # Otherwise we check for interlacing with the R-part. 
+                # If there is interlacing then we combine |B| with the topmost
+                # block and repeat the process with the new topmost block.
+                # If there is no interlacing then we push block |B| onto |S|.
+                block = Block(e, a)
+                print '        ### new block {}:'.format(i), e, a
+                
+                while True:
+                    if block.left_interlace(stack): 
+                        print '        left interlace flip'
+                        stack[-1].flip()
+                    if block.left_interlace(stack): 
+                        return False
+                    if block.right_interlace(stack): 
+                        print '        right interlace combine'
+                        block.combine(stack.pop())
+                    else: 
+                        break
+
+                stack.append(block)
+                    
+            # PREPARE FOR NEXT ITERATION
+            # We have now processed all edges emanating from vertex |w|. 
+            # Before starting to process edges emanating from vertex
+            # |parent[w]| we remove |parent[w]| from the list of attachments
+            # of the topmost 
+            # block of stack |S|. 
+            # If this block becomes empty then we pop it from the stack and 
+            # record the placement for all segments in the block in array
+            # |alpha|.
+            while stack and stack[-1].clean(dfs_nums[dfs_parents[w]], self.alpha, dfs_nums):
+                stack.pop()
+                
+            w = dfs_parents[w]
+            
+        # TEST STRONG PLANARITY AND COMPUTE Att
+        # We test the strong planarity of the segment "S(e0)". 
+        # We know at this point that the interlacing graph is bipartite. 
+        # Also for each of its connected components the corresponding block 
+        # on stack |S| contains the list of attachments below |x|. 
+        # Let |B| be the topmost block of |S|. 
+        # If both sides of |B| have an attachment above |w0| then 
+        # "S(e0)" is not strongly planar. 
+        # We free the storage allocated for the blocks and return false.
+        # Otherwise (cf. procedure |add_to_att|) we first make sure that 
+        # the right side of |B| attaches only to |w0| (if at all) and then 
+        # add the two sides of |B| to the output list |Att|.
+        # We also record the placements of the subsegments in |alpha|.
+        del att[:]
+        while stack:
+            block = stack.pop()
+            if block.l_att and block.r_att and block.l_att[0] > dfs_nums[w0] and block.r_att[0] > dfs_nums[w0]:
+                return False
+            block.add_to_att(att, dfs_nums[w0], self.alpha, dfs_nums)
+            
+        # Let's not forget that "w0" is an attachment of "S(e0)" except if w0 = x.
+        if w0 != x: 
+            att.append(dfs_nums[w0])
+
+        print 'strongly_planar DONE:', edge, att#.elements#, [dfs_numtovert[el] for el in Att.elements]
+        print 'alpha:', self.alpha
+        print ''
+        
+        return True
+
+    def run(self, source=None):
+        att = []
+        if source is None:
+            source = list(self.edges)[0]
+        self.visit_edge(source, att)
+        return att
+
+
 def strongly_planar(g, e0, dfs_nums, parents, att, alpha):
 
     print 'strongly_planar:', e0
@@ -231,15 +370,8 @@ def strongly_planar(g, e0, dfs_nums, parents, att, alpha):
     print '    cycle:'
     print '        e0:', e0
     print '        e: ', e
-    #print '        x:', x
-    #print '        y:', y
-    #print '        e:', e
     while dfs_nums[e[1]] > dfs_nums[wk]:  # e is a tree edge
         wk = e[1]
-        #print '        wk: ', wk
-        #edges = )
-        #if e in edges:
-        #    edges.remove(e)
         e = list(g.edges(wk))[0]
         print '        e: ', e
     w0 = e[1]
@@ -363,20 +495,20 @@ def strongly_planar(g, e0, dfs_nums, parents, att, alpha):
     # If both sides of |B| have an attachment above |w0| then 
     # "S(e0)" is not strongly planar. 
     # We free the storage allocated for the blocks and return false.
-    # Otherwise (cf. procedure |add_to_Att|) we first make sure that 
+    # Otherwise (cf. procedure |add_to_att|) we first make sure that 
     # the right side of |B| attaches only to |w0| (if at all) and then 
     # add the two sides of |B| to the output list |Att|.
     # We also record the placements of the subsegments in |alpha|.
     del att[:]
     while stack:
         B = stack.pop()
-        if (B.Latt and B.Ratt and
-            B.Latt[0] > dfs_nums[w0] and B.Ratt[0] > dfs_nums[w0]):
+        if (B.l_att and B.r_att and
+            B.l_att[0] > dfs_nums[w0] and B.r_att[0] > dfs_nums[w0]):
             #del B
             #while S.IsNotEmpty(): 
             #    S.Pop()
             return False
-        B.add_to_Att(att, dfs_nums[w0], alpha, dfs_nums)
+        B.add_to_att(att, dfs_nums[w0], alpha, dfs_nums)
         del B
         
     # Let's not forget that "w0" is an attachment of "S(e0)" except if w0 = x.
@@ -425,13 +557,12 @@ def process_biconnected_subgraph(g):
     og.add_nodes_from(g.nodes)
     og.add_edges_from(edges)
 
-    print og.nodes
-    print og.edges
+    # Encode dfs_num and dfs_parent onto each node.
+    nx.set_node_attributes(og, itr.dfs_nums, 'dfs_num')
+    nx.set_node_attributes(og, itr.parents, 'dfs_parent')
+
 
     attr = []
-
-
-
     first_edge = ('N1', 'N2')#list(og.edges)[0]
     alpha = {first_edge: LEFT}
 
@@ -442,8 +573,8 @@ def process_biconnected_subgraph(g):
     print ''
 
     #print 'first node:', g.nodes
-    print 'first first_adj_edge:', list(og.edges)[0]
-    print ''
+    #print 'first first_adj_edge:', list(og.edges)[0]
+    #print ''
 
 
     result = strongly_planar(og, first_edge, itr.dfs_nums, itr.parents, attr, alpha)
@@ -451,6 +582,13 @@ def process_biconnected_subgraph(g):
 
     print 'attr:', attr
     print 'alpha:', alpha
+
+    print '*********************************************'
+    print '*********************************************'
+    print '*********************************************'
+
+    itr = StronglyPlanarDfsIterator(og)
+    itr.run(('N1', 'N2'))
 
     return
 

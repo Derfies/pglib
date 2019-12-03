@@ -7,33 +7,65 @@ RIGHT = 1
 
 class Block(object):
 
-    def __init__(self, e, A):
+    def __init__(self, e, a):
+        """
+        Initialise the block with an edge and a list of attachments. This 
+        represents a block with a single edge as the only segment in its left
+        side.
+
+        """
         self.l_att = []
         self.r_att = [] 
         self.l_seg = []
         self.r_seg = [] 
 
         self.l_seg.append(e)
-        self.l_att.extend(A)
+        self.l_att.extend(a)
             
     def flip(self):
+        """
+        Interchange the two sides of a block by switching out the attachements
+        and segments.
+
+        """
         self.r_att, self.l_att = self.l_att, self.r_att
         self.r_seg, self.l_seg = self.l_seg, self.r_seg
         
     def left_interlace(self, s):
+        """
+        Return True if this block interlaces with the left side of the topmost 
+        block of the given stack, False otherwise. 
+
+        """
         return s and s[-1].l_att and self.l_att[-1] < s[-1].l_att[0]
 
     def right_interlace(self, s):
+        """
+        Return True if this block interlaces with the right side of the topmost 
+        block of the given stack, False otherwise. 
+
+        """
         return s and s[-1].r_att and self.l_att[-1] < s[-1].r_att[0]
             
     def combine(self, block):
+        """
+        Combine this block with the given block by simply concatenating all 
+        lists.
+
+        """
         self.l_att.extend(block.l_att)
         self.r_att.extend(block.r_att)
         self.l_seg.extend(block.l_seg)
         self.r_seg.extend(block.r_seg)
         
-    def clean(self, dfs_num_w, alpha, dfs_num):
+    def clean(self, dfs_num_w, alpha):
+        """
+        Remove the attachment w from this block (it is guaranteed to be the 
+        first attachment). If the block becomes empty then record the placement 
+        of all segments of the block in the array alpha and return True, False 
+        otherwise. 
 
+        """
         while self.l_att and self.l_att[0] == dfs_num_w:
             self.l_att.pop(0)
         while self.r_att and self.r_att[0] == dfs_num_w:
@@ -49,14 +81,24 @@ class Block(object):
             
         return True
         
-    def add_to_att(self, Att, dfs_num_w0, alpha, dfs_num):
+    def add_to_att(self, att, dfs_num_w0, alpha):
+        """
+        Add this block to the end of the given attachment list, flipping where 
+        necessary.
 
+        First makes sure that the right side has no attachment above w0 (by 
+        flipping). When add_to_Att is called at least one side has no attachment 
+        above w0. add_to_att then adds the lists r_att and l_att to the output 
+        list att and records the placement of all segments in the block in 
+        alpha.
+
+        """
         if self.r_att and self.r_att[0] > dfs_num_w0:
             self.flip()
 
-        Att.extend(self.l_att)
+        att.extend(self.l_att)
         del self.l_att[:]
-        Att.extend(self.r_att) 
+        att.extend(self.r_att) 
         del self.r_att[:]
 
         for e in self.l_seg:
@@ -178,7 +220,7 @@ class StronglyPlanarDfsIterator(object):
                         break
                 stack.append(block)
                     
-            while stack and stack[-1].clean(dfs_nums[dfs_parents[w]], self.alpha, dfs_nums):
+            while stack and stack[-1].clean(dfs_nums[dfs_parents[w]], self.alpha):
                 stack.pop()
                 
             w = dfs_parents[w]
@@ -188,7 +230,7 @@ class StronglyPlanarDfsIterator(object):
             block = stack.pop()
             if block.l_att and block.r_att and block.l_att[0] > dfs_nums[w0] and block.r_att[0] > dfs_nums[w0]:
                 return False
-            block.add_to_att(att, dfs_nums[w0], self.alpha, dfs_nums)
+            block.add_to_att(att, dfs_nums[w0], self.alpha)
             
         # Let's not forget that "w0" is an attachment of "S(e0)" except if w0 = x.
         if w0 != x: 

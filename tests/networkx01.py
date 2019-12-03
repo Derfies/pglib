@@ -109,6 +109,13 @@ class Block(object):
 
 class ReorderEdgesDfsIterator(object):
 
+    """
+    DFS node iterator object used to compute dfs_num, parent, lowpt1 and lowpt2, 
+    for all nodes. This will also store all forward edges and all reversals of 
+    tree edges that need to be deleted later.
+
+    """
+
     def __init__(self, g):
         self.g = g
 
@@ -131,19 +138,22 @@ class ReorderEdgesDfsIterator(object):
         edges.sort(key=lambda x: (len(x[1]), x[1]))     # TO DO: Remove this
         for edge in edges:
             y = edge[1]
-            if y not in self.visited:
+            if y not in self.visited:   # The edge is a tree edge.
                 self.parents[y] = x
                 self.visit_node(y)
                 self.lowpt1s[x] = min(self.lowpt1s[x], self.lowpt1s[y])
             else:
                 self.lowpt1s[x] = min(self.lowpt1s[x], self.dfs_nums[y])
+
+                # Forward edge or reversal of tree edge.
                 if self.dfs_nums[y] >= self.dfs_nums[x] or y == self.parents[x]: 
                     self.del_edges.append(edge) 
 
-        # Calculate low point 2.
+        # We know lowpt1 of x at this point and will now make a second pass over 
+        # all adjacent edges of x to compute lowpt2.
         for edge in self.g.edges(x):
             y = edge[1]
-            if self.parents.get(y) == x:
+            if self.parents.get(y) == x:    # Tree edge.
                 if self.lowpt1s[y] != self.lowpt1s[x]:
                     self.lowpt2s[x] = min(self.lowpt2s[x], self.lowpt1s[y])
                 self.lowpt2s[x] = min(self.lowpt2s[x], self.lowpt2s[y])
@@ -155,6 +165,12 @@ class ReorderEdgesDfsIterator(object):
         if source is None:
             source = list(self.g.nodes)[0]
         self.visit_node(source)
+
+        # Store data collected on the graph itself.
+        nx.set_node_attributes(self.g, self.dfs_nums, 'dfs_num')
+        nx.set_node_attributes(self.g, self.parents, 'parent')
+        nx.set_node_attributes(self.g, self.lowpt1s, 'lowpt1')
+        nx.set_node_attributes(self.g, self.lowpt2s, 'lowpt2')
 
 
 class StronglyPlanarDfsIterator(object):
@@ -191,7 +207,7 @@ class StronglyPlanarDfsIterator(object):
         x, w, w0 = self.find_cycle(edge)
         
         dfs_nums = self.g.nodes.data('dfs_num')
-        dfs_parents = self.g.nodes.data('dfs_parent')
+        parents = self.g.nodes.data('parent')
 
         stack = []
         while w != x:
@@ -220,10 +236,10 @@ class StronglyPlanarDfsIterator(object):
                         break
                 stack.append(block)
                     
-            while stack and stack[-1].clean(dfs_nums[dfs_parents[w]], self.alpha):
+            while stack and stack[-1].clean(dfs_nums[parents[w]], self.alpha):
                 stack.pop()
                 
-            w = dfs_parents[w]
+            w = parents[w]
             
         del att[:]
         while stack:
@@ -251,6 +267,11 @@ class StronglyPlanarDfsIterator(object):
 
 
 def calculate_edge_weights(g):
+    """
+    Calculate the edge weight for each edge in the graph based on dfs_num, 
+    lowpt1 and lowpt2 values.
+    
+    """
     dfs_nums = g.nodes.data('dfs_num')
     lowpt1s = g.nodes.data('lowpt1')
     lowpt2s = g.nodes.data('lowpt2')
@@ -272,12 +293,6 @@ def process_biconnected_subgraph(g):
     itr.run(source='N1')    # TO DO: Remove
     g.remove_edges_from(itr.del_edges)
 
-    # Encode dfs_num and dfs_parent onto each node.
-    nx.set_node_attributes(g, itr.dfs_nums, 'dfs_num')
-    nx.set_node_attributes(g, itr.parents, 'dfs_parent')
-    nx.set_node_attributes(g, itr.lowpt1s, 'lowpt1')
-    nx.set_node_attributes(g, itr.lowpt2s, 'lowpt2')
-    
     # Sort the edges based on their lowpt1 and lowpt2 values. Use an ordered
     # graph so the order can be maintained.
     og = nx.OrderedDiGraph()

@@ -1,3 +1,5 @@
+import abc
+
 import networkx as nx
 
 
@@ -173,14 +175,20 @@ class ReorderEdgesDfsIterator(object):
         nx.set_node_attributes(self.g, self.lowpt2s, 'lowpt2')
 
 
-class StronglyPlanarDfsIterator(object):
+class CycleDfsIteratorBase(object):
+
+    __metaclass__ = abc.ABCMeta
 
     def __init__(self, g):
         self.g = g
 
-        self.alpha = {}
-
     def find_cycle(self, e0):
+        """
+        Find the cycle "C(e0)" by following first edges until a back edge is 
+        encountered. Return three nodes: The cycle's first node, the last node
+        on the tree path and the back edge's destination node.
+
+        """
         x, y = e0
         e = list(self.g.edges(y))[0]
         wk = y
@@ -194,21 +202,32 @@ class StronglyPlanarDfsIterator(object):
             wk = e[1]
             e = list(self.g.edges(wk))[0]
             print '        e: ', e
-        w0 = e[1]
+
         print '        wk (last node on tree path):', wk
-        print '        w0 (back edge destination):', w0
+        print '        w0 (back edge destination):', e[1]
 
-        w = wk
+        return x, wk, e[1]
 
-        return x, w, w0
+    @abc.abstractmethod
+    def visit_edge(self, edge):
+        """"""
+
+    @abc.abstractmethod
+    def run(self, source=None):
+        """"""
+
+
+class StronglyPlanarDfsIterator(CycleDfsIteratorBase):
+
+    def __init__(self, *args, **kwargs):
+        super(StronglyPlanarDfsIterator, self).__init__(*args, **kwargs)
+
+        self.alpha = {}
 
     def visit_edge(self, edge, att):
-
-        x, w, w0 = self.find_cycle(edge)
-        
         dfs_nums = self.g.nodes.data('dfs_num')
         parents = self.g.nodes.data('parent')
-
+        x, w, w0 = self.find_cycle(edge)
         stack = []
         while w != x:
             for i, e in enumerate(list(self.g.edges(w))):
@@ -224,6 +243,7 @@ class StronglyPlanarDfsIterator(object):
                 else:
                     a.append(dfs_nums[e[1]])
                     
+                # Update the stack of attachments.
                 block = Block(e, a)
                 while True:
                     if block.left_interlace(stack): 
@@ -240,37 +260,40 @@ class StronglyPlanarDfsIterator(object):
                 stack.pop()
                 
             w = parents[w]
-            
+        
         del att[:]
         while stack:
             block = stack.pop()
-            if block.l_att and block.r_att and block.l_att[0] > dfs_nums[w0] and block.r_att[0] > dfs_nums[w0]:
+            if (block.l_att and block.r_att and block.l_att[0] > dfs_nums[w0] and 
+                block.r_att[0] > dfs_nums[w0]):
                 return False
             block.add_to_att(att, dfs_nums[w0], self.alpha)
             
-        # Let's not forget that "w0" is an attachment of "S(e0)" except if w0 = x.
+        # Let's not forget that "w0" is an attachment of "S(e0)" except if 
+        # w0 == x.
         if w0 != x: 
             att.append(dfs_nums[w0])
 
-        print 'strongly_planar DONE:', edge, att
-        print 'alpha:', self.alpha
-        print ''
-        
         return True
 
     def run(self, source=None):
         att = []
         if source is None:
             source = list(self.g.edges)[0]
-        self.visit_edge(source, att)
-        return att
+        result = self.visit_edge(source, att)
+
+        # Store data collected on the graph itself.
+        nx.set_edge_attributes(self.g, LEFT, 'alpha')
+        nx.set_edge_attributes(self.g, self.alpha, 'alpha')
+
+        return result
 
 
 def calculate_edge_weights(g):
     """
     Calculate the edge weight for each edge in the graph based on dfs_num, 
     lowpt1 and lowpt2 values.
-    
+
     """
     dfs_nums = g.nodes.data('dfs_num')
     lowpt1s = g.nodes.data('lowpt1')
@@ -285,24 +308,24 @@ def calculate_edge_weights(g):
             edge_data['weight'] = 2 * lowpt1s[y] + 1
 
 
-def process_biconnected_subgraph(g):
+def process_biconnected_subgraph(dg):
    
     # Create an iterator that will traverse the graph in a dfs manner, 
     # calculating dfs_num, lowpt1 and lowpt2 for each node.
-    itr = ReorderEdgesDfsIterator(g)
+    itr = ReorderEdgesDfsIterator(dg)
     itr.run(source='N1')    # TO DO: Remove
-    g.remove_edges_from(itr.del_edges)
+    dg.remove_edges_from(itr.del_edges)
 
     # Sort the edges based on their lowpt1 and lowpt2 values. Use an ordered
     # graph so the order can be maintained.
-    og = nx.OrderedDiGraph()
-    og.add_nodes_from(g.nodes(data=True))
-    calculate_edge_weights(g)
-    og.add_edges_from(sorted(g.edges(data=True), key=lambda e: e[2]['weight']))
+    odg = nx.OrderedDiGraph()
+    odg.add_nodes_from(dg.nodes(data=True))
+    calculate_edge_weights(dg)
+    odg.add_edges_from(sorted(dg.edges(data=True), key=lambda e: e[2]['weight']))
 
     # Run the stronly planar function.
-    itr = StronglyPlanarDfsIterator(og)
-    itr.run(('N1', 'N2'))    # TO DO: Remove
+    itr = StronglyPlanarDfsIterator(odg)
+    print 'planar:', itr.run(('N1', 'N2'))    # TO DO: Remove
 
 
 def run(g):
@@ -314,10 +337,10 @@ def run(g):
     # Base planarity algorithm only works on biconnected components. Run the
     # algorithm on each bicon separately then combine at the end.
     for bicons in nx.biconnected_components(g):
-        sg = nx.DiGraph(nx.subgraph(g, bicons))
-        process_biconnected_subgraph(sg)
+        dg = nx.DiGraph(nx.subgraph(g, bicons))
+        process_biconnected_subgraph(dg)
 
 
 if __name__ == '__main__':
-    g = nx.read_graphml(r'C:\Users\Jamie Davies\Documents\Graphs\test8.graphml')
+    g = nx.read_graphml(r'C:\Users\Jamie Davies\Documents\Graphs\test00.graphml')
     run(g)

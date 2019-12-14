@@ -239,7 +239,7 @@ class StronglyPlanarDfsIterator(CycleDfsIteratorBase):
                 a = []
                 if dfs_nums[w] < dfs_nums[e[1]]: 
                     if not self.visit_edge(e, a):
-                        return False                    
+                        return False
                 else:
                     a.append(dfs_nums[e[1]])
                     
@@ -326,6 +326,7 @@ def process_biconnected_subgraph(dg):
     # Run the stronly planar function.
     itr = StronglyPlanarDfsIterator(odg)
     print 'planar:', itr.run(('N1', 'N2'))    # TO DO: Remove
+    return itr
 
 
 def run(g):

@@ -226,26 +226,54 @@ class VisibilityGraphGenerator(networkx01.CycleDfsIteratorBase):
         # Get or create v2. 
         # Ensure overlap.
         # Build the edge.
+
+        direction = 1 if edges[0] in self.alpha and self.alpha[edges[0]] == 1 else 0
+
         x = 0
         y = 0
         for e in edges:
 
             logger.info('Edge: {}'.format(e))
 
-            # Get or create v1.
+            # Get or create v1. If v1 already exists create an empty row and
+            # column below and to the right of it where v2 will go.
             v1 = self.vertices.get(e[0])
             if v1 is None:
                 v1 = Vertex(x, x + 1, y, e[0])
                 self.vertices[e[0]] = v1
                 y += 1
             else:
-                x = v1.get_next_available_column()
+                x = v1.get_next_available_column()  # This check might be redundant.
                 if x is None:
 
                     # This is currently "GO RIGHT". Need to do "GO LEFT".
-                    x = v1.x2
-                    logger.info('    Insert col: {}'.format(x))
-                    self.insert_column(x)
+
+                    
+                    #print e, e in self.alpha
+                    #f e in self.alpha:
+                    #   print 'FOUND:', self.alpha[e]
+                    #logger.info('    {} {}'.format(e, e in self.alpha))
+                    if e in self.alpha and self.alpha[e] == 0:
+
+
+                        # Set the cursor to the beginning of the existing vertex. 
+                        # This will cause it to build below / left of the existing
+                        # cycle.
+                        x = v1.x1
+                        #logger.info('    RIGHT')
+                        logger.info('    Insert col: {}'.format(x))
+                        self.insert_column(x)
+
+                    else:
+
+                        # Set the cursor to the end of the existing vertex. This
+                        # will cause it to build above / right of the existing
+                        # cycle.
+                        x = v1.x2
+                        #logger.info('    LEFT')
+                        logger.info('    Insert col: {}'.format(x))
+                        self.insert_column(x)
+
                         
                     # TODO:
                     # Don't insert row if the second vert already exists.
@@ -253,11 +281,29 @@ class VisibilityGraphGenerator(networkx01.CycleDfsIteratorBase):
                     self.insert_row(v1.y)
                     y = v1.y + 1
 
+                else:
+                    logger.warn('    X WAS NOT NONE: {} -> {}'.format(v1, x))
+
             # Get or create v2.
-            if e[1] not in self.vertices:
-                self.vertices[e[1]] = Vertex(x, x + 1, y, e[1])
+            # if e[1] not in self.vertices:
+            #     self.vertices[e[1]] = Vertex(x, x + 1, y, e[1])
+            #     y += 1
+            # v2 = self.vertices[e[1]]
+
+            v2 = self.vertices.get(e[1])
+            if v2 is None:
+                v2 = Vertex(x, x + 1, y, e[1])
+                self.vertices[e[1]] = v2
                 y += 1
-            v2 = self.vertices[e[1]]
+            else:
+                if e == edges[-1] and direction == 0:
+                    logger.info('    ***********GO LEFT***********: {}'.format(e))
+                    x = v2.x1
+                    #logger.info('    LEFT')
+                    logger.info('    Insert col: {}'.format(x))
+                    self.insert_column(x)
+                else:
+                    pass
 
             # Ensure both vertices overlap the current column.
             v1.x1 = min(v1.x1, x)
@@ -275,15 +321,15 @@ class VisibilityGraphGenerator(networkx01.CycleDfsIteratorBase):
 
             x += 1
 
-            #if e == ('N10', 'N3'):
-            #    return
+            # if e == ('N10', 'N3'):
+            #   return
             
         #return
             
 
-        if self.counter > 0:
-           return
-        self.counter += 1
+        # if self.counter > 0:
+        #    return
+        # self.counter += 1
 
 
 
@@ -495,7 +541,7 @@ class VisibilityGraphGenerator(networkx01.CycleDfsIteratorBase):
 
 
 
-g = nx.read_graphml(r'C:\Users\Jamie Davies\Documents\Graphs\test8.graphml')
+g = nx.read_graphml(r'C:\Users\Jamie Davies\Documents\Graphs\horrid.graphml')
 
 # Bail if the graph isn't connected.
 if not nx.is_connected(g):
@@ -506,13 +552,14 @@ if not nx.is_connected(g):
 itr = None
 for bicons in nx.biconnected_components(g):
     dg = nx.DiGraph(nx.subgraph(g, bicons))
-    itr = networkx01.process_biconnected_subgraph(dg)
+    itr, att = networkx01.process_biconnected_subgraph(dg)
     # = dg
 
 
 print '*' * 35
 
 print itr.alpha
+print att
 
 graph_gen = VisibilityGraphGenerator(itr.alpha, itr.g)
 graph_gen.run(('N1', 'N2'))

@@ -242,6 +242,13 @@ class StronglyPlanarDfsIterator(CycleDfsIteratorBase):
                         return False
                 else:
                     a.append(dfs_nums[e[1]])
+
+                # value = None
+                # print '^^^^:', a
+                # for foo in a:
+                #     for k, v in dict(dfs_nums).items():
+                #         if v == foo:
+                #             print '########:', k
                     
                 # Update the stack of attachments.
                 block = Block(e, a)
@@ -274,19 +281,24 @@ class StronglyPlanarDfsIterator(CycleDfsIteratorBase):
         if w0 != x: 
             att.append(dfs_nums[w0])
 
+        print 'att:', att
+
         return True
 
     def run(self, source=None):
         att = []
         if source is None:
             source = list(self.g.edges)[0]
+        self.alpha[source] = RIGHT
         result = self.visit_edge(source, att)
+
+        print 'ATT:', att
 
         # Store data collected on the graph itself.
         nx.set_edge_attributes(self.g, LEFT, 'alpha')
         nx.set_edge_attributes(self.g, self.alpha, 'alpha')
 
-        return result
+        return result, att
 
 
 def calculate_edge_weights(g):
@@ -325,8 +337,9 @@ def process_biconnected_subgraph(dg):
 
     # Run the stronly planar function.
     itr = StronglyPlanarDfsIterator(odg)
-    print 'planar:', itr.run(('N1', 'N2'))    # TO DO: Remove
-    return itr
+    result, att = itr.run(('N1', 'N2'))    # TO DO: Remove
+    print 'planar:', result
+    return itr, att
 
 
 def run(g):
@@ -343,5 +356,5 @@ def run(g):
 
 
 if __name__ == '__main__':
-    g = nx.read_graphml(r'C:\Users\Jamie Davies\Documents\Graphs\test00.graphml')
+    g = nx.read_graphml(r'C:\Users\Jamie Davies\Documents\Graphs\horrid.graphml')
     run(g)

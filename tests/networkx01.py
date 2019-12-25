@@ -175,6 +175,53 @@ class ReorderEdgesDfsIterator(object):
         nx.set_node_attributes(self.g, self.lowpt2s, 'lowpt2')
 
 
+class Cycle(object):
+
+    def __init__(self, edges):
+        self._edges = edges
+        # self.g = g
+        # self.e0 = e0
+
+        # self._verts = list(self.e0)
+        # self._edges = [self.e0]
+
+        #self._find_cycle()
+
+    def __str__(self):
+        return 'e: ' + str(self._edges)# + '\nv: ' + str(self._verts)
+
+    @classmethod
+    def find(cls, g, first_edge):
+        """
+        Find the cycle "C(e0)" by following first edges until a back edge is 
+        encountered. Return three nodes: The cycle's first node, the last node
+        on the tree path and the back edge's destination node.
+
+        """
+
+        edges = [first_edge]
+
+        last_edge = first_edge
+        edge = list(g.edges(first_edge[1]))[0]
+        edges.append(edge)
+
+        print '    new cycle:'
+        print '        e0:', first_edge
+        print '        e: ', edge
+
+        dfs_nums = g.nodes.data('dfs_num')
+        while dfs_nums[edge[1]] > dfs_nums[last_edge[1]]:  # edge is a tree edge
+            last_edge = edge
+            edge = list(g.edges(edge[1]))[0]
+            edges.append(edge)
+            print '        e: ', edge
+
+        print '        wk (last node on tree path):', edge[0]
+        print '        w0 (back edge destination):', edge[1]
+
+        return cls(edges)#first_edge[0], edge[0], edge[1]
+
+
 class CycleDfsIteratorBase(object):
 
     __metaclass__ = abc.ABCMeta
@@ -228,6 +275,10 @@ class StronglyPlanarDfsIterator(CycleDfsIteratorBase):
         dfs_nums = self.g.nodes.data('dfs_num')
         parents = self.g.nodes.data('parent')
         x, w, w0 = self.find_cycle(edge)
+        cycle = Cycle.find(self.g, edge)
+        print '*' * 35
+        print cycle
+        print '*' * 35
         stack = []
         while w != x:
             for i, e in enumerate(list(self.g.edges(w))):

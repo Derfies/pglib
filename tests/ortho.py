@@ -5,7 +5,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 
-NUM_NODES = 6
+NUM_NODES = 5
 INSIDE_CORNER = 90
 OUTSIDE_CORNER = -90
 STRAIGHT_CORNER = 0
@@ -22,17 +22,47 @@ X_DIRS = (Direction.left, Direction.right)
 Y_DIRS = (Direction.up, Direction.down)
 
 
-def get_face_edges(g):
-    """
-    Return contiguous face edges.
-    """
-    def get_first_edge(n):
-        return list(g.edges(n))[0]
-    x = list(g.nodes())[0]
-    edges = [get_first_edge(x)]
-    while edges[-1][1] != x:
-        edges.append(get_first_edge(edges[-1][1]))
-    return edges
+class Layout(object):
+
+    def __init__(self, g, angles):
+        self.g = g
+        self.angles = angles
+        self.edges = self._get_face_edges()
+        self.calculate_bounds()
+
+    def _get_face_edges(self):
+        """
+        Return contiguous face edges.
+        """
+        def get_first_edge(n):
+            return list(self.g.edges(n))[0]
+        x = list(self.g.nodes())[0]
+        edges = [get_first_edge(x)]
+        while edges[-1][1] != x:
+            edges.append(get_first_edge(edges[-1][1]))
+        return edges
+
+    def calculate_bounds(self):
+
+        edges = {}
+        print '\nangles:', self.angles
+        direction = Direction.up
+        for idx, edge in enumerate(self.edges):
+            print '    ', idx, edge, direction
+            edges.setdefault(direction, []).append(edge)
+            if self.angles[idx] == INSIDE_CORNER:
+                direction += 1
+            elif self.angles[idx] == OUTSIDE_CORNER:
+                direction -= 1
+            direction = Direction(int(direction) % 4)
+
+        print 'edges:'#, edges
+        for dir_, idx in edges.items():
+            print '    ', dir_, idx
+
+        # Calculate max bounds.
+        self.x = max([len(idxs) for dir_, idxs in edges.items() if dir_ in X_DIRS])
+        self.y = max([len(idxs) for dir_, idxs in edges.items() if dir_ in Y_DIRS])
 
 
 def permute_layouts(g):
@@ -76,29 +106,9 @@ def permute_layouts(g):
     # Walk polygon edges clockwise and put into buckets.
 
     for angles in set(angle_perms):
-
-        edges = {}
-        print '\nangles:', angles
-        direction = Direction.up
-        for idx, edge in enumerate(get_face_edges(g)):
-            print '    ', idx, edge, direction
-            edges.setdefault(direction, []).append(edge)
-            if angles[idx] == INSIDE_CORNER:
-                direction += 1
-            elif angles[idx] == OUTSIDE_CORNER:
-                direction -= 1
-            direction = Direction(int(direction) % 4)
-
-        print 'edges:'#, edges
-        for dir_, idx in edges.items():
-            print '    ', dir_, idx
-
-        # Calculate max bounds.
-        x = max([len(idxs) for dir_, idxs in edges.items() if dir_ in X_DIRS])
-        y = max([len(idxs) for dir_, idxs in edges.items() if dir_ in Y_DIRS])
-
-        print 'x:', x
-        print 'y:', y
+        layout = Layout(g, angles)
+        print 'x:', layout.x
+        print 'y:', layout.y
 
 
 # Outright fail if there are less than 4 nodes. We can change this to try to

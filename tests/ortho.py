@@ -17,6 +17,10 @@ class Direction(enum.IntEnum):
     down = 2
     left = 3
 
+    @staticmethod
+    def opposite(dir_):
+        return Direction(int(dir_) - 2 % 4)
+
 
 X_DIRS = (Direction.left, Direction.right)
 Y_DIRS = (Direction.up, Direction.down)
@@ -26,9 +30,32 @@ class Layout(object):
 
     def __init__(self, g, angles):
         self.g = g
+        nx.set_edge_attributes(self.g, 1, 'length')
         self.angles = angles
         self.edges = self._get_face_edges()
         self.calculate_bounds()
+
+        # HAXXOR
+        for dir_ in Direction:
+            print dir_
+        #for dir_, edges in self.edge_directions.items():
+
+
+    @property
+    def width(self):
+        return max([
+            len(idxs)
+            for dir_, idxs in self.edge_directions.items()
+            if dir_ in X_DIRS
+        ])
+
+    @property
+    def height(self):
+        return max([
+            len(idxs)
+            for dir_, idxs in self.edge_directions.items()
+            if dir_ in Y_DIRS
+        ])
 
     def _get_face_edges(self):
         """
@@ -44,12 +71,12 @@ class Layout(object):
 
     def calculate_bounds(self):
 
-        edges = {}
+        self.edge_directions = {}
         print '\nangles:', self.angles
         direction = Direction.up
         for idx, edge in enumerate(self.edges):
             print '    ', idx, edge, direction
-            edges.setdefault(direction, []).append(edge)
+            self.edge_directions.setdefault(direction, []).append(edge)
             if self.angles[idx] == INSIDE_CORNER:
                 direction += 1
             elif self.angles[idx] == OUTSIDE_CORNER:
@@ -57,12 +84,15 @@ class Layout(object):
             direction = Direction(int(direction) % 4)
 
         print 'edges:'#, edges
-        for dir_, idx in edges.items():
+        for dir_, idx in self.edge_directions.items():
             print '    ', dir_, idx
 
         # Calculate max bounds.
-        self.x = max([len(idxs) for dir_, idxs in edges.items() if dir_ in X_DIRS])
-        self.y = max([len(idxs) for dir_, idxs in edges.items() if dir_ in Y_DIRS])
+        #self.x = max([len(idxs) for dir_, idxs in edges.items() if dir_ in X_DIRS])
+        #self.y = max([len(idxs) for dir_, idxs in edges.items() if dir_ in Y_DIRS])
+
+        print 'width:', self.width
+        print 'height:', self.height
 
 
 def permute_layouts(g):
@@ -104,11 +134,9 @@ def permute_layouts(g):
     print 'unique:', len(set(angle_perms))
 
     # Walk polygon edges clockwise and put into buckets.
-
     for angles in set(angle_perms):
-        layout = Layout(g, angles)
-        print 'x:', layout.x
-        print 'y:', layout.y
+        layout = Layout(g.copy(), angles)
+
 
 
 # Outright fail if there are less than 4 nodes. We can change this to try to

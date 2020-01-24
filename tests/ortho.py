@@ -5,8 +5,9 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 
-NUM_NODES = 5
+NUM_NODES = 6
 LENGTH = 'length'
+ANGLE = 'angles'
 
 
 class Direction(enum.IntEnum):
@@ -43,11 +44,12 @@ class Angle(enum.IntEnum):
 class Base(object):
 
     def edge_walk(self, direction):
-        for idx, edge in enumerate(self.edges):
+        for edge in self.edges:
             yield edge, direction
-            if self.angles[idx] == Angle.inside:
+            angle = self.g.node[edge[0]][ANGLE]
+            if angle == Angle.inside:
                 direction += 1
-            elif self.angles[idx] == Angle.outside:
+            elif angle == Angle.outside:
                 direction -= 1
             direction = Direction.normalise(direction)
 
@@ -57,9 +59,12 @@ class Layout(Base):
     def __init__(self, g, angles):
         super(Base, self).__init__()
 
-        self.g = g
+        self.g = g.copy()
+        nx.set_node_attributes(self.g, {
+            node: {ANGLE: angles[idx] }
+            for idx, node in enumerate(self.g.nodes)
+        })
         nx.set_edge_attributes(self.g, 1, LENGTH)
-        self.angles = angles
         self.edges = self._get_face_edges()
         self.edge_directions = self._get_edge_directions()
 
@@ -96,6 +101,7 @@ class Layout(Base):
         return directions
 
     def permute_polygons(self):
+        """Permutes edge lengths"""
 
         polygons = []
 
@@ -109,11 +115,10 @@ class Layout(Base):
             foobar[min_dir] = length_perms
                       
         for perm in [dict(zip(foobar, v)) for v in it.product(*foobar.values())]:
-            poly = Polygon(self.g.copy(), self.angles, self.edges)
+            poly = Polygon(self.g.copy(), self.edges)
             for dir_, lengths in perm.items():
-                length_iter = iter(lengths)
-                for edge in self.edge_directions[dir_]:
-                    poly.g[edge[0]][edge[1]][LENGTH] = length_iter.next()
+                for i, edge in enumerate(self.edge_directions[dir_]):
+                    poly.g[edge[0]][edge[1]][LENGTH] = lengths[i]
             polygons.append(poly)
 
         return polygons
@@ -121,20 +126,18 @@ class Layout(Base):
 
 class Polygon(Base):
 
-    def __init__(self, g, angles, edges):
+    def __init__(self, g, edges):
         super(Base, self).__init__()
 
         self.g = g
-        self.angles = angles
         self.edges = edges
 
     def vertex_positions(self):
         positions = {}
         pos = [0, 0]
         for edge, direction in list(self.edge_walk(Direction.up)):
-            idx = edge[0]
-            length = self.g[edge[0]][edge[1]][LENGTH]
-            positions[idx] = pos[:]
+            positions[edge[0]] = pos[:]
+            length = self.g.edges[edge][LENGTH]
             if direction == Direction.up:
                 pos[1] += length
             elif direction == Direction.right:
@@ -180,7 +183,7 @@ def permute_layouts(g):
 
     print 'total:', len(angle_perms)
     print 'unique:', len(set(angle_perms))
-    return [Layout(g.copy(), angles) for angles in set(angle_perms)]
+    return [Layout(g, angles) for angles in set(angle_perms)]
 
 
 def init_pyplot(figsize):

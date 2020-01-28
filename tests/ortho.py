@@ -115,7 +115,7 @@ class Layout(Base):
             foobar[min_dir] = length_perms
                       
         for perm in [dict(zip(foobar, v)) for v in it.product(*foobar.values())]:
-            poly = Polygon(self.g.copy(), self.edges)
+            poly = Polygon(self.g, self.edges)
             for dir_, lengths in perm.items():
                 for i, edge in enumerate(self.edge_directions[dir_]):
                     poly.g[edge[0]][edge[1]][LENGTH] = lengths[i]
@@ -129,7 +129,7 @@ class Polygon(Base):
     def __init__(self, g, edges):
         super(Base, self).__init__()
 
-        self.g = g
+        self.g = g.copy()
         self.edges = edges
 
     def vertex_positions(self):

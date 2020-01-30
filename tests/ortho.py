@@ -311,7 +311,7 @@ for face in sorted_faces:
         x_margin = max([p[0] for p in old_poss.values()]) + buff
         nx.draw_networkx(poly.g, pos=poss)
 
-    y_margin += buff
+    y_margin = max([p[1] for p in old_poss.values()]) + buff
 
     #nx.draw_networkx(g, pos=pos)
 plt.show()

@@ -1,3 +1,4 @@
+import math
 import itertools as it
 
 import enum
@@ -8,6 +9,7 @@ import matplotlib.pyplot as plt
 NUM_NODES = 6
 LENGTH = 'length'
 ANGLE = 'angles'
+GRID_PATH = r'grid03.graphml'
 
 
 class Direction(enum.IntEnum):
@@ -206,23 +208,110 @@ def init_pyplot(figsize):
     # frame. We use tigher=True to make sure the data gets scaled to the full 
     # extents of the axes.
     plt.autoscale(tight=True)
+    
+    
+def convert_pos_to_embedding(g, pos):
+    """only straight line in G."""
+    emd = nx.PlanarEmbedding()
+    for node in g:
+        neigh_pos = {
+            neigh: (
+                pos[neigh][0] - pos[node][0],
+                pos[neigh][1]-pos[node][1]
+            ) for neigh in g[node]
+        }
+        neighes_sorted = sorted(
+            g.adj[node],
+            key=lambda v: math.atan2(
+                neigh_pos[v][1], neigh_pos[v][0])
+        )  # counter clockwise
+        last = None
+        for neigh in neighes_sorted:
+            emd.add_half_edge_ccw(node, neigh, last)
+            last = neigh
+    emd.check_structure()
+    return emd
+
+
+def get_external_face_half_edge(g, pos):
+    corner_node = min(pos, key=lambda k: (pos[k][0], pos[k][1]))
+    other = max(
+        g.adj[corner_node], key=lambda node:
+        (pos[node][1] - pos[corner_node][1]) /
+        math.hypot(
+            pos[node][0] - pos[corner_node][0],
+            pos[node][1] - pos[corner_node][1]
+        )
+    )  # maximum cosine value
+    return list(reversed(sorted([corner_node, other], key=lambda node:
+                  (pos[node][1], pos[node][0]))))
+
+
+def get_internal_faces(faces, hedge):
+    source, target = hedge
+    int_faces = []
+    for face in faces:
+        if source in face and target in face:
+            sidx, tidx = face.index(source), face.index(target)
+            if sidx < tidx: # SHould be tidx == sidx + 1 but need to wrap around
+                print hedge, face, sidx, tidx
+                print 'Removing exterior face:', face
+                continue
+        int_faces.append(face)
+    return int_faces
+
+
+def get_faces(embedding):
+    faces = []
+    visited = set()
+    for edge in embedding.edges():
+        if edge in visited:
+            continue
+        faces.append(embedding.traverse_face(*edge, mark_half_edges=visited))
+    return faces
+
+
+def create_graph():
+
+    g = nx.path_graph(NUM_NODES, create_using=nx.DiGraph)
+
+    # Add an edge from the last to the first node to create an enclosed polygon.
+    nodes = list(g.nodes())
+    g.add_edge(nodes[-1], nodes[0])
+    g.add_edge(nodes[1], nodes[4])
+    '''
+
+    g = nx.Graph(nx.read_graphml(GRID_PATH)).to_directed()
+    '''
+    return nx.Graph(nx.relabel_nodes(g, {
+        n: chr(97 + n) for n in range(len(g.nodes()))
+    })).to_directed()
 
 
 # Outright fail if there are less than 4 nodes. We can change this to try to
 # insert new dummy nodes in the future.
-g = nx.path_graph(NUM_NODES, create_using=nx.DiGraph)
-assert g.number_of_nodes() >= 4, 'Cannot close polygon with less than 4 nodes'
 
-# Add an edge from the last to the first node to create an enclosed polygon.
-nodes = list(g.nodes())
-g.add_edge(nodes[-1], nodes[0])
+
+#ssert g.number_of_nodes() >= 4, 'Cannot close polygon with less than 4 nodes'
 
 
 
-g = nx.relabel_nodes(g, {
-    n: chr(97 + n) for n in range(len(g.nodes()))
-})
 
+g = create_graph()
+pos = nx.spectral_layout(g)
+#try:
+embedding = convert_pos_to_embedding(g, pos)
+faces = get_faces(embedding)
+ext_hedge = get_external_face_half_edge(g, pos)
+int_faces = get_internal_faces(faces, ext_hedge)
+for face in int_faces:
+    print '->', face
+#except Exception, e:
+
+    # Using the spring layout sometimes fails... we still want to inspect the
+    # graph to see what it looks like / where it went wrong.
+#    print e
+'''
 init_pyplot((25, 3))
 
 
@@ -241,5 +330,7 @@ for i, poly in enumerate(polys):
     margin = max([p[0] for p in old_poss.values()]) + 1 
     nx.draw_networkx(poly.g, pos=poss)
 
+'''
 
+nx.draw_networkx(g, pos=pos)
 plt.show()

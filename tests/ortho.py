@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 NUM_NODES = 6
 LENGTH = 'length'
 ANGLE = 'angles'
-GRID_PATH = r'grid03.graphml'
+GRID_PATH = r'test01.graphml'
 
 
 class Direction(enum.IntEnum):
@@ -58,16 +58,17 @@ class Base(object):
 
 class Layout(Base):
 
-    def __init__(self, g, angles):
+    def __init__(self, face, angles):
         super(Base, self).__init__()
 
-        self.g = g.copy()
+        self.g = nx.Graph()
+        self.g.add_edges_from(face)
         nx.set_node_attributes(self.g, {
             node: {ANGLE: angles[idx] }
             for idx, node in enumerate(self.g.nodes)
         })
         nx.set_edge_attributes(self.g, 1, LENGTH)
-        self.edges = self._get_face_edges()
+        self.edges = face   # Edges are ordered at this point.
         self.edge_directions = self._get_edge_directions()
 
     def get_direction_length(self, direction):
@@ -83,18 +84,6 @@ class Layout(Base):
     @property
     def height(self):
         return max(map(self.get_direction_length, Direction.ys()))
-
-    def _get_face_edges(self):
-        """
-        Return contiguous face edges.
-        """
-        def get_first_edge(n):
-            return list(self.g.edges(n))[0]
-        x = list(self.g.nodes())[0]
-        edges = [get_first_edge(x)]
-        while edges[-1][1] != x:
-            edges.append(get_first_edge(edges[-1][1]))
-        return edges
 
     def _get_edge_directions(self):
         directions = {}
@@ -151,10 +140,10 @@ class Polygon(Base):
         return positions
 
 
-def permute_layouts(g):
+def permute_layouts(face):
 
     # We need four inside corners in order to close the polygon.
-    num_nodes = g.number_of_nodes()
+    num_nodes = len(face)
     num_spare_nodes = num_nodes - 4
 
     # Calculate all possible combinations of spare angles. Filter out all
@@ -185,7 +174,7 @@ def permute_layouts(g):
 
     print 'total:', len(angle_perms)
     print 'unique:', len(set(angle_perms))
-    return [Layout(g, angles) for angles in set(angle_perms)]
+    return [Layout(face, angles) for angles in set(angle_perms)]
 
 
 def init_pyplot(figsize):
@@ -243,22 +232,7 @@ def get_external_face_half_edge(g, pos):
             pos[node][1] - pos[corner_node][1]
         )
     )  # maximum cosine value
-    return list(reversed(sorted([corner_node, other], key=lambda node:
-                  (pos[node][1], pos[node][0]))))
-
-
-def get_internal_faces(faces, hedge):
-    source, target = hedge
-    int_faces = []
-    for face in faces:
-        if source in face and target in face:
-            sidx, tidx = face.index(source), face.index(target)
-            if sidx < tidx: # SHould be tidx == sidx + 1 but need to wrap around
-                print hedge, face, sidx, tidx
-                print 'Removing exterior face:', face
-                continue
-        int_faces.append(face)
-    return int_faces
+    return (other, corner_node)
 
 
 def get_faces(embedding):
@@ -267,12 +241,17 @@ def get_faces(embedding):
     for edge in embedding.edges():
         if edge in visited:
             continue
-        faces.append(embedding.traverse_face(*edge, mark_half_edges=visited))
+        nodes = embedding.traverse_face(*edge, mark_half_edges=visited)
+        edges = []
+        for idx in range(len(nodes)):
+            next_idx = (idx + 1) % len(nodes)
+            edges.append((nodes[idx], nodes[next_idx]))
+        faces.append(edges)
     return faces
 
 
 def create_graph():
-
+    '''
     g = nx.path_graph(NUM_NODES, create_using=nx.DiGraph)
 
     # Add an edge from the last to the first node to create an enclosed polygon.
@@ -282,55 +261,57 @@ def create_graph():
     '''
 
     g = nx.Graph(nx.read_graphml(GRID_PATH)).to_directed()
-    '''
+
     return nx.Graph(nx.relabel_nodes(g, {
         n: chr(97 + n) for n in range(len(g.nodes()))
     })).to_directed()
 
 
-# Outright fail if there are less than 4 nodes. We can change this to try to
-# insert new dummy nodes in the future.
-
-
-#ssert g.number_of_nodes() >= 4, 'Cannot close polygon with less than 4 nodes'
-
-
-
-
 g = create_graph()
-pos = nx.spectral_layout(g)
-#try:
+pos = nx.spring_layout(g, seed=0)
+#nx.draw_networkx(g, pos=pos)
 embedding = convert_pos_to_embedding(g, pos)
-faces = get_faces(embedding)
-ext_hedge = get_external_face_half_edge(g, pos)
-int_faces = get_internal_faces(faces, ext_hedge)
-for face in int_faces:
-    print '->', face
-#except Exception, e:
 
-    # Using the spring layout sometimes fails... we still want to inspect the
-    # graph to see what it looks like / where it went wrong.
-#    print e
-'''
+# Outright fail if any face is less than 4 edges. We can change this to try to
+# insert new dummy nodes in the future.
+faces = get_faces(embedding)
+for face in faces:
+    assert len(face) >= 4, 'Cannot close polygon with less than 4 nodes'
+
+ext_hedge = get_external_face_half_edge(g, pos)
+print 'ext_hedge:', ext_hedge
+int_faces = filter(lambda x: ext_hedge not in x, faces)
+sorted_faces = sorted(int_faces, key=lambda x: len(x))
+print 'num faces:', len(sorted_faces)
+
 init_pyplot((25, 3))
 
+y_margin = 0
+for face in sorted_faces:
 
-layouts = permute_layouts(g)
-polys = []
-for layout in layouts:
-    polys.extend(layout.permute_polygons())
+    # Draw the original face.
+    g = nx.Graph()
+    g.add_edges_from(face)
+    #nx.draw_networkx(g, pos=pos)
 
-buff = 1
-margin = 0
-for i, poly in enumerate(polys):
-    poss = poly.vertex_positions()
-    old_poss = poss.copy()
-    for nidx, pos in poss.items():
-        pos[0] += margin
-    margin = max([p[0] for p in old_poss.values()]) + 1 
-    nx.draw_networkx(poly.g, pos=poss)
 
-'''
+    layouts = permute_layouts(face)
+    polys = []
+    for layout in layouts:
+        polys.extend(layout.permute_polygons())
 
-nx.draw_networkx(g, pos=pos)
+    buff = 2
+    x_margin = 0
+    for i, poly in enumerate(polys):
+        poss = poly.vertex_positions()
+        old_poss = poss.copy()
+        for nidx, p in poss.items():
+            p[0] += x_margin
+            p[1] += y_margin
+        x_margin = max([p[0] for p in old_poss.values()]) + buff
+        nx.draw_networkx(poly.g, pos=poss)
+
+    y_margin += buff
+
+    #nx.draw_networkx(g, pos=pos)
 plt.show()

@@ -1,9 +1,15 @@
+import os
+import sys
+if os.path.dirname(__file__) not in sys.path:
+    sys.path.append(os.path.dirname(__file__))
 import math
 import itertools as it
 
 import enum
 import networkx as nx
 import matplotlib.pyplot as plt
+
+from pglib.graph.face import Face
 
 
 NUM_NODES = 6
@@ -140,6 +146,116 @@ class Polygon(Base):
         return positions
 
 
+class OrthogonalLayouter(object):
+
+    def __init__(self, g):
+        self._g = g
+
+        self._pos = self.get_planar_layout()
+        self._embedding = self.get_planar_embedding()
+        self._faces = self.get_faces()
+
+        # Outright fail if any face is less than 4 edges. We can change this to 
+        # try to insert new dummy nodes in the future.
+        for face in self.faces:
+            assert len(face) >= 4, 'Cannot close polygon with less than 4 nodes'
+
+    @property
+    def g(self):
+        return self._g
+
+    @property
+    def pos(self):
+        return self._pos
+
+    @property
+    def embedding(self):
+        return self._embedding
+
+    @property
+    def faces(self):
+        return self._faces
+
+    def get_planar_layout(self):
+        return nx.spring_layout(self.g, seed=0)
+
+    def get_planar_embedding(self):
+        """only straight line in G."""
+        emd = nx.PlanarEmbedding()
+        for node in self.g:
+            neigh_pos = {
+                neigh: (
+                    self.pos[neigh][0] - self.pos[node][0],
+                    self.pos[neigh][1] - self.pos[node][1]
+                ) for neigh in self.g[node]
+            }
+            neighes_sorted = sorted(
+                self.g.adj[node],
+                key=lambda v: math.atan2(
+                    neigh_pos[v][1], neigh_pos[v][0])
+            )  # counter clockwise
+            last = None
+            for neigh in neighes_sorted:
+                emd.add_half_edge_ccw(node, neigh, last)
+                last = neigh
+        emd.check_structure()
+        return emd
+
+    def get_all_faces(self):
+        faces = []
+        visited = set()
+        for edge in self.embedding.edges():
+            if edge in visited:
+                continue
+            nodes = self.embedding.traverse_face(*edge, mark_half_edges=visited)
+            edges = [
+                (nodes[idx], nodes[(idx + 1) % len(nodes)])
+                for idx in range(len(nodes))
+            ]
+            faces.append(Face(edges))
+        return faces
+
+    def get_external_face_half_edge(self):
+        corner = min(self.pos, key=lambda n: (self.pos[n][0], self.pos[n][1]))
+        other = max(
+            g.adj[corner], key=lambda node:
+            (self.pos[node][1] - self.pos[corner][1]) /
+            math.hypot(
+                self.pos[node][0] - self.pos[corner][0],
+                self.pos[node][1] - self.pos[corner][1]
+            )
+        )  # maximum cosine value
+        return (other, corner)
+
+    def get_faces(self):
+        faces = self.get_all_faces()
+        ext_hedge = self.get_external_face_half_edge()
+        int_faces = filter(lambda x: ext_hedge not in x, faces)
+        return sorted(int_faces, key=lambda x: len(x))
+
+    def _process_face(self, face):
+        print '->', face
+
+        self.done_faces.append(face)
+
+        for layout in permute_layouts(face)[0:1]:
+            for poly in layout.permute_polygons()[0:1]:
+
+                self.polys.append(poly)
+
+                # Find adjoining faces.
+                adj_faces = []
+                for adj_face in layouter.faces:
+                    rev_face = adj_face.reversed()
+                    if adj_face not in self.done_faces and (set(face) & set(rev_face)):
+                        self._process_face(adj_face)
+
+    def run(self):
+        self.done_faces = []
+        self.polys = []
+        self._process_face(self.faces[0])
+
+
 def permute_layouts(face):
 
     # We need four inside corners in order to close the polygon.
@@ -172,8 +288,8 @@ def permute_layouts(face):
                 for inside_angle in inside_angles
             ]))
 
-    print 'total:', len(angle_perms)
-    print 'unique:', len(set(angle_perms))
+    print 'total num layouts:', len(angle_perms)
+    print 'unique num layouts:', len(set(angle_perms))
     return [Layout(face, angles) for angles in set(angle_perms)]
 
 
@@ -198,57 +314,6 @@ def init_pyplot(figsize):
     # extents of the axes.
     plt.autoscale(tight=True)
     
-    
-def convert_pos_to_embedding(g, pos):
-    """only straight line in G."""
-    emd = nx.PlanarEmbedding()
-    for node in g:
-        neigh_pos = {
-            neigh: (
-                pos[neigh][0] - pos[node][0],
-                pos[neigh][1]-pos[node][1]
-            ) for neigh in g[node]
-        }
-        neighes_sorted = sorted(
-            g.adj[node],
-            key=lambda v: math.atan2(
-                neigh_pos[v][1], neigh_pos[v][0])
-        )  # counter clockwise
-        last = None
-        for neigh in neighes_sorted:
-            emd.add_half_edge_ccw(node, neigh, last)
-            last = neigh
-    emd.check_structure()
-    return emd
-
-
-def get_external_face_half_edge(g, pos):
-    corner_node = min(pos, key=lambda k: (pos[k][0], pos[k][1]))
-    other = max(
-        g.adj[corner_node], key=lambda node:
-        (pos[node][1] - pos[corner_node][1]) /
-        math.hypot(
-            pos[node][0] - pos[corner_node][0],
-            pos[node][1] - pos[corner_node][1]
-        )
-    )  # maximum cosine value
-    return (other, corner_node)
-
-
-def get_faces(embedding):
-    faces = []
-    visited = set()
-    for edge in embedding.edges():
-        if edge in visited:
-            continue
-        nodes = embedding.traverse_face(*edge, mark_half_edges=visited)
-        edges = []
-        for idx in range(len(nodes)):
-            next_idx = (idx + 1) % len(nodes)
-            edges.append((nodes[idx], nodes[next_idx]))
-        faces.append(edges)
-    return faces
-
 
 def create_graph():
     '''
@@ -267,51 +332,17 @@ def create_graph():
     })).to_directed()
 
 
+# Create a test graph, pass it to a layouter and run.
 g = create_graph()
-pos = nx.spring_layout(g, seed=0)
-#nx.draw_networkx(g, pos=pos)
-embedding = convert_pos_to_embedding(g, pos)
+layouter = OrthogonalLayouter(g)
+layouter.run()
 
-# Outright fail if any face is less than 4 edges. We can change this to try to
-# insert new dummy nodes in the future.
-faces = get_faces(embedding)
-for face in faces:
-    assert len(face) >= 4, 'Cannot close polygon with less than 4 nodes'
+# Draw the original graph.
+nx.draw_networkx(layouter.g, pos=layouter.pos)
 
-ext_hedge = get_external_face_half_edge(g, pos)
-print 'ext_hedge:', ext_hedge
-int_faces = filter(lambda x: ext_hedge not in x, faces)
-sorted_faces = sorted(int_faces, key=lambda x: len(x))
-print 'num faces:', len(sorted_faces)
+# Draw each polygon with its orthogonal vertex positions.
+for poly in layouter.polys:
+    nx.draw_networkx(poly.g, pos=poly.vertex_positions())
 
-init_pyplot((25, 3))
-
-y_margin = 0
-for face in sorted_faces:
-
-    # Draw the original face.
-    g = nx.Graph()
-    g.add_edges_from(face)
-    #nx.draw_networkx(g, pos=pos)
-
-
-    layouts = permute_layouts(face)
-    polys = []
-    for layout in layouts:
-        polys.extend(layout.permute_polygons())
-
-    buff = 2
-    x_margin = 0
-    for i, poly in enumerate(polys):
-        poss = poly.vertex_positions()
-        old_poss = poss.copy()
-        for nidx, p in poss.items():
-            p[0] += x_margin
-            p[1] += y_margin
-        x_margin = max([p[0] for p in old_poss.values()]) + buff
-        nx.draw_networkx(poly.g, pos=poss)
-
-    y_margin = max([p[1] for p in old_poss.values()]) + buff
-
-    #nx.draw_networkx(g, pos=pos)
+# Show all.
 plt.show()

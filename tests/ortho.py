@@ -62,8 +62,9 @@ class Layout(object):
     def _get_edge_directions(self):
         directions = {}
         for edge, direction in list(self.edge_walk(const.Direction.up)):
-            self.g[edge[0]][edge[1]][DIRECTION] = direction
+            #self.g[edge[0]][edge[1]][DIRECTION] = direction
             directions.setdefault(direction, []).append(edge)
+            self.g.edges[edge][DIRECTION] = direction
         return directions
 
     def edge_walk(self, direction):
@@ -221,10 +222,10 @@ class OrthogonalLayouter(object):
 
         # Find the directions of these edges.
 
-        dirs = [
-            g.edges[edge][DIRECTION]
+        dirs = {
+            edge: g.edges[edge][DIRECTION]
             for edge in common
-        ]
+        }
         print 'common dirs:', dirs
 
 
@@ -235,12 +236,25 @@ class OrthogonalLayouter(object):
         for layout in self.permute_layouts(face)[0:1]:
             for poly in layout.permute_polygons()[0:1]:
 
-                print 'layout dirs:', [poly.g.edges[edge][DIRECTION] for edge in common]
+                print 'poly dirs:  ', poly.edge_directions
+                print 'common dirs:', {
+                    edge: poly.g.edges[edge][DIRECTION] 
+                    for edge in common
+                }
+
+                #print []
 
                 # Test for poly validity here?
                 g_copy = g.copy()
                 g_copy.add_edges_from(poly.edges)
                 self.polys.append(poly)
+
+                can_join = all([
+                    poly.g.edges[edge][DIRECTION] == const.Direction.opposite(g.edges[edge][DIRECTION])
+                    for edge in common
+                ])
+                print 'CAN JOIN:', can_join
+
 
                 #print 'graph now:', g_copy.nodes()
 

@@ -1,6 +1,10 @@
 import enum
 
 
+ANGLE = 'angle'
+DIRECTION = 'direction'
+
+
 class Direction(enum.IntEnum):
 
     up = 0

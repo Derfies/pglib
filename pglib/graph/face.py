@@ -27,6 +27,10 @@ class Face(collections.MutableSequence):
         del self.edges[idx]
 
     def insert(self, idx, edge):
+
+        # Probably can't do this if the face is enclosed to start with. Only by
+        # adding a chord would this work, and that's not really the defintion 
+        # I'm after.
         self.edges.insert(idx, edge)
 
     def reversed(self):

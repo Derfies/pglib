@@ -35,3 +35,9 @@ class Face(collections.MutableSequence):
 
     def reversed(self):
         return Face([tuple(reversed(edge)) for edge in self])
+
+    def set_first_edge(self, edge):
+        idx = self.index(edge)
+        edges = list(self.edges[idx:])
+        edges.extend(self.edges[0:idx])
+        return Face(edges)

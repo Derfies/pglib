@@ -5,14 +5,23 @@ from const import Angle, Direction, ANGLE, DIRECTION
 
 class OrthogonalMesh(nx.Graph):
 
+    def __init__(self, *args, **kwargs):
+        super(OrthogonalMesh, self).__init__(*args, **kwargs)
+
+        self.faces = []
+
+    def copy(self, *args, **kwargs):
+        copy = super(OrthogonalMesh, self).copy(*args, **kwargs)
+        copy.faces = self.faces[:]
+        return copy
+
     def can_add_face(self, face):
         dirs_match = []
         for edge in self.get_common_edges(face):
             mesh_dir = self.edges[edge][DIRECTION]
             rev_edge = tuple(reversed(edge))
             face_dir = face.directions[rev_edge]
-            rev_face_dir = Direction.opposite(face_dir)
-            dirs_match.append(rev_face_dir == mesh_dir)
+            dirs_match.append(face_dir == mesh_dir)
         return all(dirs_match)
 
     def add_face(self, face):

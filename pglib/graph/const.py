@@ -5,6 +5,17 @@ ANGLE = 'angle'
 DIRECTION = 'direction'
 
 
+class Angle(enum.IntEnum):
+
+    inside = 90
+    outside = -90
+    straight = 0
+
+    @staticmethod
+    def explementary(angle):
+        return Angle(angle * -1)
+
+
 class Direction(enum.IntEnum):
 
     up = 0

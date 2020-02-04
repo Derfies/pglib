@@ -1,6 +1,6 @@
 import networkx as nx
 
-from const import Direction, DIRECTION, ANGLE
+from const import Angle, Direction, ANGLE, DIRECTION
 
 
 class OrthogonalMesh(nx.Graph):
@@ -27,8 +27,16 @@ class OrthogonalMesh(nx.Graph):
             self.edges[edge][DIRECTION] = attr
 
     def get_common_edges(self, face):
-        return [
-            edge
-            for edge in face.reversed()
-            if edge in self.edges
-        ]
+        return filter(lambda x: x in self.edges, face.reversed())
+
+    def get_possible_angles(self, node):
+        existing_angles = nx.get_node_attributes(self, ANGLE).get(node)
+        if existing_angles is None:
+            return list(Angle)
+        total = sum(existing_angles.values())
+        return filter(lambda a: a <= total, Angle)
+
+    def get_explementary_angle(self, node):
+        existing_angles = nx.get_node_attributes(self, ANGLE).get(node)
+        total = sum(existing_angles.values())
+        return Angle.explementary(total)

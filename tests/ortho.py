@@ -1,7 +1,8 @@
 import os
 import sys
-if os.path.dirname(__file__) not in sys.path:
-    sys.path.append(os.path.dirname(__file__))
+pkg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+if pkg_path not in sys.path:
+    sys.path.append(pkg_path)
 import copy
 import math
 import itertools as it
@@ -23,11 +24,11 @@ DIRECTION = 'direction'
 GRID_PATH = r'test01.graphml'
 
 
-class Angle(enum.IntEnum):
+class NodeState(enum.IntEnum):
 
-    inside = 90
-    outside = -90
-    straight = 0
+    unknown = 0
+    free = 1
+    known = 2
 
 
 class OrthogonalFace(Face):
@@ -72,9 +73,9 @@ class OrthogonalFace(Face):
         for edge in self.edges:
             yield edge, direction
             angle = self.angles[edge[1]]#self.g.node[edge[1]][ANGLE]   # WRONG ANGLE BEING ENCODED
-            if angle == Angle.inside:
+            if angle == const.Angle.inside:
                 direction += 1
-            elif angle == Angle.outside:
+            elif angle == const.Angle.outside:
                 direction -= 1
             direction = const.Direction.normalise(direction)
 
@@ -183,48 +184,38 @@ class OrthogonalLayouter(object):
         return sorted(int_faces, key=lambda x: len(x))
 
     def _process_face(self, face, g):
-        print '\n->', face
+        print '\nProcess face:', face
 
-        # Find the edges that are common to both the face and the rest of the 
-        # graph.
-        common = g.get_common_edges(face)
-        #print 'common edges:', common
-
-        # Turn these into contiguous sets. (?)
-
-        # Find the directions of these edges.
-
-        dirs = {
-            edge: g.edges[edge][DIRECTION]
-            for edge in common
-        }
-        print 'common edge dirs:', dirs
-
-        # Permute layouts or filter layouts using these angles.
-
-        self.done_faces.append(face)
+        #self.done_faces.append(face)
 
         face_added = False
-        for poly in self.permute_layouts(face)[0:1]:
+        polys = self.permute_layouts(g, face)
+        print '    num layouts:', len(polys)
+        for poly in polys:
 
             # Test for poly validity here?
             g_copy = g.copy()
-            #g_copy.add_edges_from(poly.edges)
-            
 
             can_join = g.can_add_face(poly)
-            print 'CAN JOIN:', can_join
+            print '    CAN JOIN:', can_join
             if not can_join:
                 continue
             g_copy.add_face(poly)
             self.polys.append(poly)
+            face_added = True
           
             # Find adjoining faces.
-            adj_faces = []
             for adj_face in layouter.faces:
+
                 rev_face = adj_face.reversed()
-                if adj_face not in self.done_faces and (set(face) & set(rev_face)):
-                    self._process_face(adj_face, g_copy)
+                face_done = adj_face in self.done_faces
+                shares_edges = bool(set(face) & set(rev_face))
+                print '    next_face:', adj_face, 'face_done:', face_done, 'shares_edges:', shares_edges
+                if not face_done and shares_edges:
+                    result = self._process_face(adj_face, g_copy)
+                    print 'adj:', result
+
+        return face_added
 
     def run(self):
         self.done_faces = []
@@ -232,7 +223,44 @@ class OrthogonalLayouter(object):
         self._process_face(self.faces[0], OrthogonalMesh())
 
 
-    def permute_layouts(self, face):
+    def permute_layouts(self, g, face):
+
+        poss_angles = {}
+
+        # Warning! These edges aren't guaranteed to be contiguous.
+        common_edges = g.get_common_edges(face)
+
+        for node in face.nodes:
+            idx = len(filter(lambda edge: node in edge, common_edges))
+            node_state = NodeState(idx)
+            if node_state == NodeState.known:
+                poss_angles[node] = [g.get_explementary_angle(node)]
+            elif node_state == NodeState.unknown:
+                poss_angles[node] = g.get_possible_angles(node)
+            elif node_state == NodeState.free:
+                poss_angles[node] = list(const.Angle)
+            else:
+                raise Exception('Unknown node state: {}'.format(node_state))
+            print '        ', node, node_state, poss_angles[node]
+
+
+        #perms = [zip(poss_angles, v) for v in set(it.product(*poss_angles.values()))]
+        perms = set(it.product(*poss_angles.values()))
+        angle_perms = filter(lambda x: sum(x) == 360, perms)
+        #for v in legal_perms:
+        #    print v
+
+        #[zip(poss_angles, v) for v in set(it.product(*poss_angles.values()))]
+        '''
+
+        #for node, angles in poss_angles.items():
+        #    print '    ->', node, angles
+
+        # foo = it.product(*poss_angles.values())
+        # for bar in filter(lambda x: sum(x) == 0, set(foo)):
+        #     print '    ->', bar
+
+        # At this point we know the possible angles for each node
 
         # We need four inside corners in order to close the polygon.
         num_nodes = len(face)
@@ -241,18 +269,21 @@ class OrthogonalLayouter(object):
         # Calculate all possible combinations of spare angles. Filter out all
         # combinations that do not add up to zero, as these will leave the polygon
         # unclosed.
-        all_spare_angle_perms = it.product(Angle, repeat=num_spare_nodes)
+        all_spare_angle_perms = it.product(const.Angle, repeat=num_spare_nodes)
         spare_angle_perms = filter(lambda x: sum(x) == 0, all_spare_angle_perms)
 
         # Calculate all possible positions of the minimum four required inside
         # corners.
         inside_angle_perms = [
             tuple([
-                Angle.inside if idx not in idxs else None # Do we need to do outside corner?
+                const.Angle.inside if idx not in idxs else None # Do we need to do outside corner?
                 for idx in range(num_nodes)
             ])
             for idxs in it.combinations(range(num_nodes), num_spare_nodes)
         ]
+
+        #for inside_angles in inside_angle_perms:
+        #    print '        ->', inside_angles
 
         # Create all combinations using the above.
         angle_perms = []
@@ -264,12 +295,35 @@ class OrthogonalLayouter(object):
                     for inside_angle in inside_angles
                 ]))
 
-        print 'total num layouts:', len(angle_perms)
-        print 'unique num layouts:', len(set(angle_perms))
+        # HAXXOR
+        #print '&&', face.nodes
+        if face.nodes == ['a', 'b', '*', 'e', 'f']:
+            angle_perms = [(
+                const.Angle.inside,
+                const.Angle.inside,
+                const.Angle.inside,
+                const.Angle.straight,
+                const.Angle.inside
+            )]
+
+        print '    total num layouts:', len(angle_perms)
+        print '    unique num layouts:', len(set(angle_perms))
+
+        # NOTE - These are unoriented.
+        #for angles in set(angle_perms):
+        #    print '        ->', angles
+        '''
+
+        for angles in set(angle_perms):
+            print '        ->', angles
+
+
         layouts = [OrthogonalFace(face, angles) for angles in set(angle_perms)]
-        if len(layouts) == 21:
-            layouts = layouts[10:11]
+        #if len(layouts) == 21:
+        #    layouts = layouts[10:11]
         #return layouts
+
+
 
 
         # TO DO: CLEAN THIS UP
@@ -300,6 +354,9 @@ class OrthogonalLayouter(object):
         return polygons
 
 
+
+
+
 def init_pyplot(figsize):
 
     # Set pyplot dimensions.
@@ -323,17 +380,21 @@ def init_pyplot(figsize):
     
 
 def create_graph():
-    '''
+
     g = nx.path_graph(NUM_NODES, create_using=nx.DiGraph)
 
     # Add an edge from the last to the first node to create an enclosed polygon.
     nodes = list(g.nodes())
     g.add_edge(nodes[-1], nodes[0])
-    g.add_edge(nodes[1], nodes[4])
+    #g.add_edge(nodes[1], nodes[4])
+
+    g.add_edge(nodes[1], '*')
+    g.add_edge('*', nodes[4])
+
     '''
 
     g = nx.Graph(nx.read_graphml(GRID_PATH)).to_directed()
-
+    '''
     return nx.Graph(nx.relabel_nodes(g, {
         n: chr(97 + n) for n in range(len(g.nodes()))
     })).to_directed()
@@ -345,7 +406,7 @@ layouter = OrthogonalLayouter(g)
 layouter.run()
 
 # Draw the original graph.
-init_pyplot((20, 3))
+init_pyplot((10, 3))
 nx.draw_networkx(layouter.g, pos=layouter.pos)
 
 # Draw each polygon with its orthogonal vertex positions.
@@ -353,7 +414,7 @@ buff = 1
 x_margin = max([p[0] for p in layouter.pos.values()]) + buff
 for poly in layouter.polys:
     poss = poly.vertex_positions()#nx.get_node_attributes(poly.g, POSITION)
-    print poss
+    #print poss
     old_poss = poss.copy()
     for nidx, p in poss.items():
         p[0] += x_margin
@@ -365,4 +426,4 @@ for poly in layouter.polys:
     nx.draw_networkx(fg, poss)
 
 # Show all.
-plt.show()
+#plt.show()

@@ -226,6 +226,7 @@ class OrthogonalLayouter(object):
                 #print '    next_face:', adj_face, 'face_done:', face_done, 'shared_edges:', shared_edges
                 if shared_edges:
                     result = self._process_face(adj_face, g_copy, indent + 4)
+                    face_added = face_added or result
                     print ' ' * indent, 'adj:', result
 
         return face_added

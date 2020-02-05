@@ -33,11 +33,11 @@ class NodeState(enum.IntEnum):
 
 class OrthogonalFace(Face):
 
-    def __init__(self, face, angles, direction=const.Direction.up):
-        super(OrthogonalFace, self).__init__(face.edges)
+    def __init__(self, edges, angles, direction=const.Direction.up):
+        super(OrthogonalFace, self).__init__(edges)
 
         self.angles = {
-            node: angles[(idx + 1) % len(self)]
+            node: angles[(idx) % len(self)]
             for idx, node in enumerate(self.nodes)
         }
         self.lengths = {edge: 1 for edge in self}
@@ -276,148 +276,71 @@ class OrthogonalLayouter(object):
 
     def permute_layouts(self, g, face, indent):
 
-        walk_dir = const.Direction.up
-
-        poss_angles = {}
-
         # Warning! These edges aren't guaranteed to be contiguous.
+        poss_angles = []
         common_edges = g.get_common_edges(face)
         for node in face.nodes:
             idx = len(filter(lambda edge: node in edge, common_edges))
             node_state = NodeState(idx)
             if node_state == NodeState.known:
-                poss_angles[node] = [g.get_explementary_angle(node)]
+                poss_angles.append([g.get_explementary_angle(node)])
             elif node_state == NodeState.unknown:
-                poss_angles[node] = g.get_possible_angles(node)
+                poss_angles.append(g.get_possible_angles(node))
             elif node_state == NodeState.free:
-                poss_angles[node] = list(const.Angle)
+                poss_angles.append(list(const.Angle))
             else:
                 raise Exception('Unknown node state: {}'.format(node_state))
-            print ' ' * (indent + 2), node, node_state, poss_angles[node]
+            print ' ' * (indent + 2), node, node_state, poss_angles[-1]
 
-        #perms = [zip(poss_angles, v) for v in set(it.product(*poss_angles.values()))]
-        perms = set(it.product(*poss_angles.values()))
-        angle_perms = filter(lambda x: sum(x) == 360, perms)
+        print '->', poss_angles
 
-        print ' ' * (indent + 2), poss_angles.keys()
-        for angles in set(angle_perms):
-           print ' ' * (indent + 2), angles
-        #for v in legal_perms:
-        #    print v
+        #nodes, angles = poss_angles.keys(), poss_angles.values() 
+        all_angle_perms = set(it.product(*poss_angles))
+        angle_perms = filter(lambda x: sum(x) == 360, all_angle_perms)
 
-        #[zip(poss_angles, v) for v in set(it.product(*poss_angles.values()))]
-        '''
-
-        #for node, angles in poss_angles.items():
-        #    print '    ->', node, angles
-
-        # foo = it.product(*poss_angles.values())
-        # for bar in filter(lambda x: sum(x) == 0, set(foo)):
-        #     print '    ->', bar
-
-        # At this point we know the possible angles for each node
-
-        # We need four inside corners in order to close the polygon.
-        num_nodes = len(face)
-        num_spare_nodes = num_nodes - 4
-
-        # Calculate all possible combinations of spare angles. Filter out all
-        # combinations that do not add up to zero, as these will leave the polygon
-        # unclosed.
-        all_spare_angle_perms = it.product(const.Angle, repeat=num_spare_nodes)
-        spare_angle_perms = filter(lambda x: sum(x) == 0, all_spare_angle_perms)
-
-        # Calculate all possible positions of the minimum four required inside
-        # corners.
-        inside_angle_perms = [
-            tuple([
-                const.Angle.inside if idx not in idxs else None # Do we need to do outside corner?
-                for idx in range(num_nodes)
-            ])
-            for idxs in it.combinations(range(num_nodes), num_spare_nodes)
-        ]
-
-        #for inside_angles in inside_angle_perms:
-        #    print '        ->', inside_angles
-
-        # Create all combinations using the above.
-        angle_perms = []
-        for spare_angles in spare_angle_perms:
-            for inside_angles in inside_angle_perms:
-                spare_angles_iter = iter(spare_angles)
-                angle_perms.append(tuple([
-                    inside_angle or spare_angles_iter.next()
-                    for inside_angle in inside_angles
-                ]))
-
-        # HAXXOR
-        #print '&&', face.nodes
-        if face.nodes == ['a', 'b', '*', 'e', 'f']:
-            angle_perms = [(
-                const.Angle.inside,
-                const.Angle.inside,
-                const.Angle.inside,
-                const.Angle.straight,
-                const.Angle.inside
-            )]
-
-        print '    total num layouts:', len(angle_perms)
-        print '    unique num layouts:', len(set(angle_perms))
-
-        # NOTE - These are unoriented.
-        #for angles in set(angle_perms):
-        #    print '        ->', angles
-        '''
-        #print ' ' * (indent + 2), face
-        #print ' ' * (indent + 2), 'common_edges:', common_edges
-        
-        
+        # Pick an edge-walk direction. If there's a common edge we need to use
+        # that same edge's direction in order for the faces to join.
+        walk_dir = const.Direction.up
         if common_edges:
-            start_edge = common_edges[0]
-            #print ' ' * (indent + 2), 'go from:', start_edge, g.edges[start_edge][DIRECTION]
-            walk_dir = g.edges[start_edge][DIRECTION]
-            #print ' ' * (indent + 2), 'before:', list(face.edge_walk(walk_dir))
-            #face = face.set_first_edge(tuple(reversed(start_edge)))
+            walk_dir = g.edges[common_edges[0]][DIRECTION]
 
-            idx = face.index(tuple(reversed(start_edge)))
-            edges = list(face.edges[idx:])
-            edges.extend(face.edges[0:idx])
-            face = Face(edges)
+        # Turn each set of 
+        layouts = []
+        for angles in angle_perms:
 
-
-            # foo = angles[idx:]
+            # idx = len(angles)
+            # foo = list(angles[idx:])
             # foo.extend(angles[0:idx])
             # angles = foo
 
-            #print ' ' * (indent + 2), 'ROTATE FACE', face
-            #print ' ' * (indent + 2), 'after:', list(face.edge_walk(walk_dir))
-        
-        #print ' ' * (indent + 2),  face.nodes
+            print 'INPUT'
 
+            print 'walk_dir:', walk_dir
 
-        layouts = []
-        for angles in set(angle_perms):
-            foo = list(angles[idx:])
-            foo.extend(angles[0:idx])
-            angles = tuple(foo)
-            layout = OrthogonalFace(face, angles, walk_dir) 
+            for e in face.edges:
+                print '-> e', e
+
+            for a in angles:
+                print '-> a', a
+
+            layout = OrthogonalFace(face.edges, angles, walk_dir) 
             layouts.append(layout)
 
-        if layouts:
-            print ' ' * (indent + 2), 'AFTER ROLL:'
-        for layout in layouts:
-           print ' ' * (indent + 2), layout.angles
-        #if len(layouts) == 21:
-        #    layouts = layouts[10:11]
-        #return layouts
+
+            print 'LAYOUT'
+
+            for e in layout.edges:
+                print '-> E', e
+
+            
+
+            for e, a in layout.angles.items():
+                print '-> A', e, a
+
+            #for edge, direction in list(layout.edge_walk(walk_dir)):
+            #    print e, '->', direction
 
 
-
-
-        # TO DO: CLEAN THIS UP
-
-
-        #def permute_polygons(self):
         """Permutes edge lengths"""
         polygons = []
 

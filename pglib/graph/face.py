@@ -1,15 +1,11 @@
-import collections
-
-
-class Face(collections.MutableSequence):
+class Face(object):
     
     def __init__(self, edges):
         self.edges = tuple(edges)
-        self.nodes = list(set([
-            n 
-            for edge in self.edges
-            for n in edge
-        ]))
+        nodes = []
+        for edge in self.edges:
+            nodes.extend(filter(lambda n: n not in nodes, edge))
+        self.nodes = tuple(nodes)
 
     def __str__(self):
         return str(self.edges)
@@ -20,24 +16,8 @@ class Face(collections.MutableSequence):
     def __getitem__(self, idx):
         return self.edges[idx]
 
-    def __setitem__(self, idx, edge):
-        self.edges[idx] = edge
-
-    def __delitem__(self, idx):
-        del self.edges[idx]
-
-    def insert(self, idx, edge):
-
-        # Probably can't do this if the face is enclosed to start with. Only by
-        # adding a chord would this work, and that's not really the defintion 
-        # I'm after.
-        self.edges.insert(idx, edge)
+    def index(self, edge):
+        return self.edges.index(edge)
 
     def reversed(self):
         return Face([tuple(reversed(edge)) for edge in self])
-
-    def set_first_edge(self, edge):
-        idx = self.index(edge)
-        edges = list(self.edges[idx:])
-        edges.extend(self.edges[0:idx])
-        return Face(edges)

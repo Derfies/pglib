@@ -1,6 +1,6 @@
 import networkx as nx
 
-from const import Angle, Direction, ANGLE, DIRECTION
+from const import ANGLE, DIRECTION, Angle
 
 
 class OrthogonalMesh(nx.Graph):
@@ -9,10 +9,12 @@ class OrthogonalMesh(nx.Graph):
         super(OrthogonalMesh, self).__init__(*args, **kwargs)
 
         self.faces = []
+        self.layouts = []
 
     def copy(self, *args, **kwargs):
         copy = super(OrthogonalMesh, self).copy(*args, **kwargs)
         copy.faces = self.faces[:]
+        copy.layouts = self.layouts[:]
         return copy
 
     def can_add_face(self, face):
@@ -25,6 +27,7 @@ class OrthogonalMesh(nx.Graph):
         return all(dirs_match)
 
     def add_face(self, face):
+        #print '->', type(face)
         self.add_edges_from(face)
 
         # Merge face data into the graph.

@@ -1,21 +1,9 @@
 import networkx as nx
 
-from const import ANGLE, DIRECTION, Angle, Direction
+from const import ANGLE, DIRECTION, POSITION, Angle, Direction
 
 
 class OrthogonalMesh(nx.Graph):
-
-    def __init__(self, *args, **kwargs):
-        super(OrthogonalMesh, self).__init__(*args, **kwargs)
-
-        self.faces = []
-        self.layouts = []
-
-    def copy(self, *args, **kwargs):
-        copy = super(OrthogonalMesh, self).copy(*args, **kwargs)
-        copy.faces = self.faces[:]
-        copy.layouts = self.layouts[:]
-        return copy
 
     def can_add_face(self, face):
         dirs_match = []
@@ -24,18 +12,35 @@ class OrthogonalMesh(nx.Graph):
             rev_edge = tuple(reversed(edge))
             face_dir = face.directions[rev_edge]
             dirs_match.append(face_dir == Direction.opposite(mesh_dir))
-            #dirs_match.append(face_dir == mesh_dir)
-            #print 'edge:', edge, face_dir, mesh_dir, face_dir == mesh_dir
         return all(dirs_match)
 
     def add_face(self, face):
-        #print '->', type(face)
+
+        pos = face.get_node_positions()
+
+        offset = [0, 0]
+        common_edges = self.get_common_edges(face)
+        if common_edges:
+            common_node = common_edges[0][0]
+            current = self.nodes[common_node][POSITION]
+
+            incoming = pos[common_node]
+            offset = (current[0] - incoming[0], current[1] - incoming[1])
+
         self.add_edges_from(face)
 
+        
+
         # Merge face data into the graph.
+        
         for idx, node in enumerate(face.nodes):
             attr = {face: face.angles[idx]}
             self.nodes[node].setdefault(ANGLE, {}).update(attr)
+            offset_pos = pos[node]
+            offset_pos[0] += offset[0]
+            offset_pos[1] += offset[1]
+            #print '-->', 
+            self.nodes[node][POSITION] = offset_pos
         for edge in face:
             attr = face.directions[edge]
             self.edges[edge][DIRECTION] = attr

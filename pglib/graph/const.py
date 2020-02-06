@@ -3,6 +3,8 @@ import enum
 
 ANGLE = 'angle'
 DIRECTION = 'direction'
+POSITION = 'position'
+LENGTH = 'length'
 
 
 class Angle(enum.IntEnum):

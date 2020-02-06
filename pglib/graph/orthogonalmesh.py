@@ -1,6 +1,6 @@
 import networkx as nx
 
-from const import ANGLE, DIRECTION, Angle
+from const import ANGLE, DIRECTION, Angle, Direction
 
 
 class OrthogonalMesh(nx.Graph):
@@ -23,7 +23,9 @@ class OrthogonalMesh(nx.Graph):
             mesh_dir = self.edges[edge][DIRECTION]
             rev_edge = tuple(reversed(edge))
             face_dir = face.directions[rev_edge]
-            dirs_match.append(face_dir == mesh_dir)
+            dirs_match.append(face_dir == Direction.opposite(mesh_dir))
+            #dirs_match.append(face_dir == mesh_dir)
+            #print 'edge:', edge, face_dir, mesh_dir, face_dir == mesh_dir
         return all(dirs_match)
 
     def add_face(self, face):
@@ -31,8 +33,8 @@ class OrthogonalMesh(nx.Graph):
         self.add_edges_from(face)
 
         # Merge face data into the graph.
-        for node in face.nodes:
-            attr = {face: face.angles[node]}
+        for idx, node in enumerate(face.nodes):
+            attr = {face: face.angles[idx]}
             self.nodes[node].setdefault(ANGLE, {}).update(attr)
         for edge in face:
             attr = face.directions[edge]

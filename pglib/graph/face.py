@@ -2,10 +2,20 @@ class Face(object):
     
     def __init__(self, edges):
         self.edges = tuple(edges)
+
+    @classmethod
+    def from_nodes(cls, nodes):
+        return cls([
+            (nodes[idx], nodes[(idx + 1) % len(nodes)])
+            for idx in range(len(nodes))
+        ])
+
+    @property
+    def nodes(self):
         nodes = []
         for edge in self.edges:
             nodes.extend(filter(lambda n: n not in nodes, edge))
-        self.nodes = tuple(nodes)
+        return tuple(nodes)
 
     def __str__(self):
         return str(self.edges)

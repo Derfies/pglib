@@ -36,55 +36,44 @@ class OrthogonalFace(Face):
     def __init__(self, edges, angles, direction=const.Direction.up):
         super(OrthogonalFace, self).__init__(edges)
 
-        self.angles = {
-            node: angles[(idx) % len(self)]
-            for idx, node in enumerate(self.nodes)
-        }
-        self.lengths = {edge: 1 for edge in self}
+        assert sum(angles) == 360, 'Face not closed: {}'.format(angles)
 
-        #self.edges = face   # Edges are ordered at this point.
-        self.edge_directions = self._get_edge_directions(direction)
+        self.angles = angles
+        self.lengths = {edge: 1 for edge in self}
+        self.direction = direction
+        self.edge_directions = self._get_edge_directions()
+
 
     def get_direction_length(self, direction):
         return sum([
             self.lengths[edge]
             for edge in self.edge_directions[direction]
         ])
-    
-    # @property
-    # def width(self):
-    #     return max(map(self.get_direction_length, Direction.xs()))
 
-    # @property
-    # def height(self):
-    #     return max(map(self.get_direction_length, Direction.ys()))
-
-    def _get_edge_directions(self, direction):
+    def _get_edge_directions(self):
         directions = {}
         self.directions = {}
-        for edge, direction in list(self.edge_walk(direction)):
-            #self.g[edge[0]][edge[1]][DIRECTION] = direction
+        for edge, direction in list(self.edge_walk(self.direction)):
             directions.setdefault(direction, []).append(edge)
-            #self.g.edges[edge][DIRECTION] = direction
             self.directions[edge] = direction
         return directions
 
     def edge_walk(self, direction):
-        for edge in self.edges:
+        for idx, edge in enumerate(self.edges):
             yield edge, direction
-            angle = self.angles[edge[1]]#self.g.node[edge[1]][ANGLE]   # WRONG ANGLE BEING ENCODED
+            angle = self.angles[idx]
             if angle == const.Angle.inside:
                 direction += 1
             elif angle == const.Angle.outside:
                 direction -= 1
             direction = const.Direction.normalise(direction)
 
-    def vertex_positions(self, direction):
+    def vertex_positions(self):
         positions = {}
         pos = [0, 0]
-        for edge, direction in list(self.edge_walk(direction)):
+        for edge, direction in list(self.edge_walk(self.direction)):
             positions[edge[0]] = pos[:]
-            length = self.lengths[edge]#self.g.edges[edge][LENGTH]
+            length = self.lengths[edge]
             if direction == const.Direction.up:
                 pos[1] += length
             elif direction == const.Direction.right:
@@ -132,6 +121,7 @@ class OrthogonalLayouter(object):
         return sorted(faces, key=lambda n: len(n))
 
     def get_planar_layout(self):
+        return nx.spectral_layout(self.g)
         return nx.spring_layout(self.g, seed=0)
 
     def get_planar_embedding(self):
@@ -163,11 +153,7 @@ class OrthogonalLayouter(object):
             if edge in visited:
                 continue
             nodes = self.embedding.traverse_face(*edge, mark_half_edges=visited)
-            edges = [
-                (nodes[idx], nodes[(idx + 1) % len(nodes)])
-                for idx in range(len(nodes))
-            ]
-            faces.append(Face(edges))
+            faces.append(Face.from_nodes(nodes))
         return faces
 
     def get_external_face_half_edge(self):
@@ -224,6 +210,7 @@ class OrthogonalLayouter(object):
 
     def _process_face(self, face_idx, g, indent):
         face = self.faces[face_idx]
+        #print ''
         print ' ' * indent, 'Process face:', face
 
         #self.done_faces.append(face)
@@ -233,9 +220,16 @@ class OrthogonalLayouter(object):
 
         print ' ' * indent, 'Num layouts:', len(layouts)
         for i, layout in enumerate(layouts):
-
-            print ' ' * indent, 'Eval layout:', i
-            print ' ' * indent, 'Angles:', layout.angles
+            print ''
+            print ' ' * (indent + 2), 'Eval layout:', i
+            print ' ' * (indent + 2), 'Nodes:', layout.nodes
+            print ' ' * (indent + 2), 'Face:', layout
+            print ' ' * (indent + 2), 'Angles:', layout.angles
+            print ' ' * (indent + 2), 'Directions:'
+            #for e, d in layout.directions.items():
+            #    print ' ' * indent, ' ', e, '->', d
+            for e in layout:
+                print ' ' * (indent + 2), e, '->', layout.directions[e]
 
             # Test for layout validity here?
             g_copy = g.copy()
@@ -243,12 +237,12 @@ class OrthogonalLayouter(object):
             can_join = g.can_add_face(layout)
             #print '    CAN JOIN:', can_join
             if not can_join:
-                print ' ' * indent, 'Cannot join'
+                print ' ' * (indent + 2), '*** CANNOT JOIN ***'
                 #print ' ' * indent, poly.directions
                 self.layouts.append(layout)
                 continue
             else:
-                print ' ' * indent, 'JOINED!'
+                print ' ' * (indent + 2), 'JOINED!'
                 self.layouts.append(layout)
             g_copy.add_face(layout)
             g_copy.faces.append(face)
@@ -261,9 +255,9 @@ class OrthogonalLayouter(object):
             # Find adjoining faces.
             if face_idx < len(self.faces) - 1:
                 result = self._process_face(face_idx + 1, g_copy, indent + 4)
-                print ' ' * indent, 'adj:', result
+                #print ' ' * indent, 'adj:', result
             else:
-                print 'FINISHED!'
+                print ' ' * (indent + 2), 'FINISHED!'
                 #self.final_layouts.append(g_copy)
 
         return face_added
@@ -292,7 +286,7 @@ class OrthogonalLayouter(object):
                 raise Exception('Unknown node state: {}'.format(node_state))
             print ' ' * (indent + 2), node, node_state, poss_angles[-1]
 
-        print '->', poss_angles
+        #print '->', poss_angles
 
         #nodes, angles = poss_angles.keys(), poss_angles.values() 
         all_angle_perms = set(it.product(*poss_angles))
@@ -302,43 +296,29 @@ class OrthogonalLayouter(object):
         # that same edge's direction in order for the faces to join.
         walk_dir = const.Direction.up
         if common_edges:
-            walk_dir = g.edges[common_edges[0]][DIRECTION]
+            common_edge = common_edges[0]
+            walk_dir = g.edges[common_edge][DIRECTION]
+            walk_dir = const.Direction.opposite(walk_dir)
+            print ' ' * (indent + 2), 'Common edge:', common_edge, walk_dir
+
+            # HAXXOR
+            # Need to set the face edge order to go from a common edge.
+            rev_common = tuple(reversed(common_edge))
+            idx = face.index(rev_common)
+            #except ValueError:
+            #    print common_edge, '->', face.edges
+            #    raise
+            edges = list(face.edges[idx:])
+            edges.extend(face.edges[:idx])
+            face = Face(edges)
+
+        #print 'walk_dir:', walk_dir
 
         # Turn each set of 
         layouts = []
         for angles in angle_perms:
-
-            # idx = len(angles)
-            # foo = list(angles[idx:])
-            # foo.extend(angles[0:idx])
-            # angles = foo
-
-            print 'INPUT'
-
-            print 'walk_dir:', walk_dir
-
-            for e in face.edges:
-                print '-> e', e
-
-            for a in angles:
-                print '-> a', a
-
             layout = OrthogonalFace(face.edges, angles, walk_dir) 
             layouts.append(layout)
-
-
-            print 'LAYOUT'
-
-            for e in layout.edges:
-                print '-> E', e
-
-            
-
-            for e, a in layout.angles.items():
-                print '-> A', e, a
-
-            #for edge, direction in list(layout.edge_walk(walk_dir)):
-            #    print e, '->', direction
 
 
         """Permutes edge lengths"""
@@ -412,6 +392,7 @@ def create_graph():
 
 
 # Create a test graph, pass it to a layouter and run.
+'''
 g = create_graph()
 layouter = OrthogonalLayouter(g)
 layouter.run()
@@ -421,10 +402,10 @@ init_pyplot((10, 3))
 nx.draw_networkx(layouter.g, pos=layouter.pos)
 
 # Draw each polygon with its orthogonal vertex positions.
-buff = 1
+buff = 1.5
 x_margin = max([p[0] for p in layouter.pos.values()]) + buff
 for poly in layouter.layouts:
-    poss = poly.vertex_positions(const.Direction.up)#nx.get_node_attributes(poly.g, POSITION)
+    poss = poly.vertex_positions()
     #print poss
     old_poss = poss.copy()
     for nidx, p in poss.items():
@@ -437,4 +418,36 @@ for poly in layouter.layouts:
     nx.draw_networkx(fg, poss)
 
 # Show all.
+plt.show()
+
+
+
+
+
+'''
+f = Face.from_nodes(('a', 'f', 'e', '*', 'b'))
+angles = [
+    const.Angle.inside,
+    const.Angle.inside,
+    const.Angle.inside,
+    const.Angle.straight,
+    const.Angle.inside,
+]
+of = OrthogonalFace(f.edges, angles, const.Direction.up)
+
+print 'nodes:', of.nodes
+print 'edges:', of.edges
+print 'angles:', of.angles
+for edge, dir_ in list(of.edge_walk(const.Direction.up)):
+    print 'walk:', edge, '->', dir_
+
+
+pos = of.vertex_positions()
+for node in of.nodes:
+    print 'node:', node, '->', pos[node]
+
+g = nx.Graph()
+g.add_edges_from(of)
+nx.draw_networkx(g, pos)
+
 plt.show()

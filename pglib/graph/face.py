@@ -17,6 +17,9 @@ class Face(object):
             nodes.extend(filter(lambda n: n not in nodes, edge))
         return tuple(nodes)
 
+    def __eq__(self, other):
+        return self.edges == other
+
     def __str__(self):
         return str(self.edges)
 

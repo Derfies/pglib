@@ -15,31 +15,28 @@ class OrthogonalMesh(nx.Graph):
         return all(dirs_match)
 
     def add_face(self, face):
-
         pos = face.get_node_positions()
-
         offset = [0, 0]
         common_edges = self.get_common_edges(face)
         if common_edges:
             common_node = common_edges[0][0]
             current = self.nodes[common_node][POSITION]
-
             incoming = pos[common_node]
             offset = (current[0] - incoming[0], current[1] - incoming[1])
 
         self.add_edges_from(face)
 
-        
-
         # Merge face data into the graph.
-        
         for idx, node in enumerate(face.nodes):
+            num_faces = len(self.nodes.get(node, {}).get(ANGLE, {}))
+            msg = 'Node {} has {} faces'.format(node, num_faces)
+            assert num_faces < 4, msg
+
             attr = {face: face.angles[idx]}
             self.nodes[node].setdefault(ANGLE, {}).update(attr)
             offset_pos = pos[node]
             offset_pos[0] += offset[0]
             offset_pos[1] += offset[1]
-            #print '-->', 
             self.nodes[node][POSITION] = offset_pos
         for edge in face:
             attr = face.directions[edge]
@@ -57,5 +54,5 @@ class OrthogonalMesh(nx.Graph):
 
     def get_explementary_angle(self, node):
         existing_angles = nx.get_node_attributes(self, ANGLE).get(node)
-        total = sum(existing_angles.values())
-        return Angle.explementary(total)
+        total = sum(map(lambda a: 180 - a, existing_angles.values()))
+        return Angle(180 - (360 - total))

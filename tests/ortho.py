@@ -16,7 +16,7 @@ from pglib.graph.face import Face
 from pglib.graph.orthogonalmesh import OrthogonalMesh
 
 
-GRID_PATH = r'test01.graphml'
+GRID_PATH = r'test03.graphml'
 
 
 class NodeState(enum.IntEnum):
@@ -116,8 +116,9 @@ class OrthogonalLayouter(object):
         return sorted(faces, key=lambda n: len(n))
 
     def get_planar_layout(self):
-        #return nx.spectral_layout(self.g)
-        return nx.spring_layout(self.g, seed=10)
+        return nx.spectral_layout(self.g)
+        #return nx.spring_layout(self.g, seed=10)
+        return nx.nx_agraph.graphviz_layout(self.g, prog='neato')
 
     def get_planar_embedding(self):
         """only straight line in G."""
@@ -189,62 +190,67 @@ class OrthogonalLayouter(object):
         result = [sort_faces[0]]
         rec_face(sort_faces[0], result)
 
+        # print ''
+        # for face in result:
+        #     print 'Path:', face
+        # print ''
+
         return result
 
     def _process_face(self, face_idx, g, indent):
+
+        # if len(self.graphs) > 0:
+        #     return
+        
         face = self.faces[face_idx]
         print ' ' * indent, 'Process face:', face
 
-        face_added = False
         layouts = self.permute_layouts(g, face, indent)
-
         print ' ' * indent, 'Num layouts:', len(layouts)
         for i, layout in enumerate(layouts):
-            print ''
-            print ' ' * (indent + 2), 'Eval layout:', i
-            print ' ' * (indent + 2), 'Nodes:', layout.nodes
-            print ' ' * (indent + 2), 'Face:', layout
-            print ' ' * (indent + 2), 'Angles:', layout.angles
-            print ' ' * (indent + 2), 'Directions:'
-            for e in layout:
-                print ' ' * (indent + 2), e, '->', layout.directions[e]
+            # print ''
+            # print ' ' * (indent + 2), 'Eval layout:', i
+            # print ' ' * (indent + 2), 'Nodes:', layout.nodes
+            # print ' ' * (indent + 2), 'Face:', layout
+            # print ' ' * (indent + 2), 'Angles:', layout.angles
+            # print ' ' * (indent + 2), 'Directions:'
+            # for e in layout:
+            #     print ' ' * (indent + 2), e, '->', layout.directions[e]
 
             can_join = g.can_add_face(layout)
             if not can_join:
-                print ' ' * (indent + 2), '*** CANNOT JOIN ***'
+                # print ' ' * (indent + 2), '*** CANNOT JOIN ***'
                 continue
-            else:
-                print ' ' * (indent + 2), 'JOINED!'
+            # else:
+            #     print ' ' * (indent + 2), 'JOINED! Remaining:', len(self.faces) - (face_idx+1)
 
-            g_copy = g.copy()
+            # Need to deep copy the graph or else attribute dicts are polluted
+            # between copies.
+            g_copy = copy.deepcopy(g)
             g_copy.add_face(layout)
-            face_added = True
-
-            #self.layouts.setdefault(face_idx, []).append(layout)
           
             # Find adjoining faces.
             if face_idx < len(self.faces) - 1:
-                result = self._process_face(face_idx + 1, g_copy, indent + 4)
+                self._process_face(face_idx + 1, g_copy, indent + 4)
             else:
-                print ' ' * (indent + 2), 'FINISHED!'
+                #print ' ' * (indent + 2), 'FINISHED!'
                 self.graphs.append(g_copy)
 
-
-        return face_added
-
     def run(self):
+        self.idx = 0
         self.graphs = []
-        #self.layouts = {}
         self._process_face(0, OrthogonalMesh(), 0)
 
     def permute_layouts(self, g, face, indent):
 
         # Warning! These edges aren't guaranteed to be contiguous.
+        states = {}
         poss_angles = []
         common_edges = g.get_common_edges(face)
         for node in face.nodes:
             idx = len(filter(lambda edge: node in edge, common_edges))
             node_state = NodeState(idx)
+            states[node] = node_state
             if node_state == NodeState.known:
                 poss_angles.append([g.get_explementary_angle(node)])
             elif node_state == NodeState.unknown:
@@ -259,6 +265,12 @@ class OrthogonalLayouter(object):
         all_angle_perms = set(it.product(*poss_angles))
         angle_perms = filter(lambda x: sum(x) == 360, all_angle_perms)
 
+        #if not angle_perms:
+        #    print 'NO PERMS!!'
+
+        #for foo in angle_perms:
+        #    print ' ' * (indent + 2), foo
+
         # Pick an edge-walk direction. If there's a common edge we need to use
         # that same edge's direction in order for the faces to join.
         walk_dir = Direction.up
@@ -266,7 +278,7 @@ class OrthogonalLayouter(object):
             common_edge = common_edges[0]
             walk_dir = g.edges[common_edge][DIRECTION]
             walk_dir = Direction.opposite(walk_dir)
-            print ' ' * (indent + 2), 'Common edge:', common_edge, walk_dir
+            #print ' ' * (indent + 2), 'Common edge:', common_edge, walk_dir
 
             # HAXXOR
             # Need to set the face edge order to go from a common edge.
@@ -312,7 +324,7 @@ class OrthogonalLayouter(object):
                         poly.lengths[edge] = lengths[i]
                 polygons.append(poly)
 
-        return polygons
+        return polygons#, all_angle_perms, angle_perms, states, poss_angles
 
 
 def init_pyplot(figsize):
@@ -338,7 +350,7 @@ def init_pyplot(figsize):
     
 
 def create_graph():
-
+    '''
     g = nx.path_graph(6, create_using=nx.DiGraph)
 
     # Add an edge from the last to the first node to create an enclosed polygon.
@@ -360,7 +372,7 @@ def create_graph():
     '''
 
     g = nx.Graph(nx.read_graphml(GRID_PATH)).to_directed()
-    '''
+    #return g
     return nx.Graph(nx.relabel_nodes(g, {
         n: chr(97 + n) for n in range(len(g.nodes()))
     })).to_directed()
@@ -370,23 +382,39 @@ def create_graph():
 
 g = create_graph()
 layouter = OrthogonalLayouter(g)
-layouter.run()
+try:
+    layouter.run()
+except Exception, e:
+    print e
+    print 'here'
+    graph = layouter.debug
+    pos = nx.get_node_attributes(graph, POSITION)
+    nx.draw_networkx(graph, pos)
+    
+
 
 # Draw the original graph.
-init_pyplot((10, 3))
-nx.draw_networkx(layouter.g, pos=layouter.pos, node_size=200)
+init_pyplot((20, 3))
+pos = layouter.pos
+for n, p in pos.items():
+    p = list(p)
+    # p[0] *= 0.01
+    # p[1] *= 0.01
+    pos[n] = p
+nx.draw_networkx(layouter.g, pos=pos, node_size=200)
 
-buff = 1
+buff = 5
 x_margin = max([p[0] for p in layouter.pos.values()]) + buff
-y_margin = 0#max([p[1] for p in layouter.pos.values()]) + buff
-for graph in layouter.graphs:#[0:1]:
-    print '->', graph.nodes()
+# y_margin = 0#max([p[1] for p in layouter.pos.values()]) + buff
+print 'TOTAL:', len(layouter.graphs)
+#graph = layouter.debug
+for graph in layouter.graphs[0:5]:
     pos = nx.get_node_attributes(graph, POSITION)
 
     old_pos = pos.copy()
     for nidx, p in pos.items():
         p[0] += x_margin
-        p[1] += y_margin
+        #p[1] += y_margin
     x_margin = max([abs(p[0]) for p in old_pos.values()]) + buff
 
     nx.draw_networkx(graph, pos)

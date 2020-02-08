@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+    <key attr.name="comment" attr.id="comment" attr.type="string">
+        <default></default>
+    </key>
+    <key attr.name="creator" attr.id="creator" attr.type="string">
+        <default>Qt Visual Graph Editor 0.5.4</default>
+    </key>
+    <key attr.name="Labels Policy" attr.id="labels.policy" attr.type="integer">
+        <default>0</default>
+    </key>
+    <key attr.name="Color" attr.id="color" for="node">
+        <default>#ff00ff</default>
+    </key>
+    <key attr.name="Degree" attr.id="degree" for="node" attr.type="integer">
+        <default>0</default>
+    </key>
+    <key attr.name="Position" attr.id="pos" for="node">
+        <default></default>
+    </key>
+    <key attr.name="Shape" attr.id="shape" for="node" attr.type="string">
+        <default>disc</default>
+    </key>
+    <key attr.name="Size" attr.id="size" for="node">
+        <default></default>
+    </key>
+    <key attr.name="Stroke Color" attr.id="stroke.color" for="node">
+        <default>#000000</default>
+    </key>
+    <key attr.name="Stroke Size" attr.id="stroke.size" for="node" attr.type="double">
+        <default>1</default>
+    </key>
+    <key attr.name="Stroke Style" attr.id="stroke.style" for="node" attr.type="string">
+        <default>solid</default>
+    </key>
+    <key attr.name="Color" attr.id="color" for="edge">
+        <default>#a0a0a4</default>
+    </key>
+    <key attr.name="Direction" attr.id="direction" for="edge" attr.type="string">
+        <default>directed</default>
+    </key>
+    <key attr.name="Style" attr.id="style" for="edge" attr.type="string">
+        <default>solid</default>
+    </key>
+    <key attr.name="Weight" attr.id="weight" for="edge" attr.type="double">
+        <default>1</default>
+    </key>
+    <graph edgedefault="directed">
+        <node id="N8"/>
+        <node id="N2"/>
+        <node id="N7"/>
+        <node id="N1"/>
+        <node id="N4"/>
+        <node id="N6"/>
+        <node id="N5"/>
+        <node id="N3"/>
+        <node id="N9"/>
+        <edge id="E6" source="N5" target="N6"/>
+        <edge id="E7" source="N6" target="N7"/>
+        <edge id="E5" source="N4" target="N5"/>
+        <edge id="E4" source="N4" target="N1"/>
+        <edge id="E2" source="N2" target="N3"/>
+        <edge id="E3" source="N3" target="N4"/>
+        <edge id="E1" source="N1" target="N2"/>
+        <edge id="E8" source="N7" target="N2"/>
+        <edge id="E9" source="N7" target="N8"/>
+        <edge id="E10" source="N8" target="N9"/>
+        <edge id="E11" source="N9" target="N6"/>
+    </graph>
+</graphml>

@@ -16,7 +16,7 @@ from pglib.graph.face import Face
 from pglib.graph.orthogonalmesh import OrthogonalMesh
 
 
-GRID_PATH = r'test03.graphml'
+GRID_PATH = r'test01.graphml'
 
 
 class NodeState(enum.IntEnum):
@@ -112,12 +112,9 @@ class OrthogonalLayouter(object):
     def faces(self):
         return self._faces
 
-    def _sort_faces_by_num_nodes(self, faces):
-        return sorted(faces, key=lambda n: len(n))
-
     def get_planar_layout(self):
-        return nx.spectral_layout(self.g)
-        #return nx.spring_layout(self.g, seed=10)
+        #return nx.spectral_layout(self.g)
+        return nx.spring_layout(self.g, seed=0)
         return nx.nx_agraph.graphviz_layout(self.g, prog='neato')
 
     def get_planar_embedding(self):
@@ -169,31 +166,45 @@ class OrthogonalLayouter(object):
         ext_hedge = self.get_external_face_half_edge()
         int_faces = filter(lambda x: ext_hedge not in x, faces)
 
-        # Sort facees so we can walk through the mesh.
-        sort_faces = self._sort_faces_by_num_nodes(int_faces)
-
         # Build edge -> face dict.
-        self.edge_to_face = {}
-        for face in sort_faces:
-            for edge in face:
-                self.edge_to_face.setdefault(edge, []).append(face)
+        edge_to_face = {}
+        for face in int_faces:
+            edge_to_face.update(dict.fromkeys(face, face))
 
         def rec_face(face, result):
-            adj_faces = set()
-            for rev_edge in face.reversed():
-                adj_faces.update(self.edge_to_face.get(rev_edge, []))
-            for adj_face in self._sort_faces_by_num_nodes(adj_faces):
-                if adj_face not in result:
-                    result.append(adj_face)    
-                    rec_face(adj_face, result)
 
+            print 'visit face:', face
+
+            edge_to_adj_face = {
+                rev_edge: edge_to_face[rev_edge]
+                for rev_edge in face.reversed()
+                if rev_edge in edge_to_face
+            }
+
+            #next_faces = []
+            sorted_edge_to_adj_face = sorted(edge_to_adj_face.items(), 
+                key=lambda x: len(x[1]))
+
+            next_faces = []
+            for edge, adj_face in sorted_edge_to_adj_face:
+                if adj_face not in result:
+                    adj_face = adj_face.set_from_edge(edge)
+                    result.append(adj_face)
+                    next_faces.append(adj_face)
+
+            for next_face in next_faces:
+                rec_face(next_face, result)
+
+        # Sort faces so we can walk through the mesh.
+        #sort_faces = self._sort_faces_by_num_nodes(int_faces)
+        sort_faces = sorted(faces, key=lambda n: len(n))
         result = [sort_faces[0]]
         rec_face(sort_faces[0], result)
 
-        # print ''
-        # for face in result:
-        #     print 'Path:', face
-        # print ''
+        print ''
+        for i, face in enumerate(result):
+            print 'Path:', i, '->', face
+        print ''
 
         return result
 
@@ -236,11 +247,6 @@ class OrthogonalLayouter(object):
                 #print ' ' * (indent + 2), 'FINISHED!'
                 self.graphs.append(g_copy)
 
-    def run(self):
-        self.idx = 0
-        self.graphs = []
-        self._process_face(0, OrthogonalMesh(), 0)
-
     def permute_layouts(self, g, face, indent):
 
         # Warning! These edges aren't guaranteed to be contiguous.
@@ -282,17 +288,19 @@ class OrthogonalLayouter(object):
 
             # HAXXOR
             # Need to set the face edge order to go from a common edge.
-            rev_common = tuple(reversed(common_edge))
-            idx = face.index(rev_common)
-            edges = list(face.edges[idx:])
-            edges.extend(face.edges[:idx])
-            face = Face(edges)
-            new_angle_perms = []
-            for angles in angle_perms:
-                angles2 = list(angles[idx:])
-                angles2.extend(angles[:idx])
-                new_angle_perms.append(angles2)
-            angle_perms = new_angle_perms
+            # rev_common = tuple(reversed(common_edge))
+            # idx = face.index(rev_common)
+            # print '\nbefore:', face
+            # edges = list(face.edges[idx:])
+            # edges.extend(face.edges[:idx])
+            # face = Face(edges)
+            # print 'after:', face
+            # new_angle_perms = []
+            # for angles in angle_perms:
+            #     angles2 = list(angles[idx:])
+            #     angles2.extend(angles[:idx])
+            #     new_angle_perms.append(angles2)
+            # angle_perms = new_angle_perms
 
         #print 'walk_dir:', walk_dir
 
@@ -325,6 +333,11 @@ class OrthogonalLayouter(object):
                 polygons.append(poly)
 
         return polygons#, all_angle_perms, angle_perms, states, poss_angles
+
+    def run(self):
+        self.idx = 0
+        self.graphs = []
+        self._process_face(0, OrthogonalMesh(), 0)
 
 
 def init_pyplot(figsize):
@@ -361,36 +374,35 @@ def create_graph():
     #g.add_edge(nodes[1], nodes[4])
 
     # 2 squares with single node
-    #g.add_edge(nodes[1], '*')
-    #g.add_edge('*', nodes[4])
+    # g.add_edge(nodes[1], '*')
+    # g.add_edge('*', nodes[4])
 
     # 2 squares with two nodes
-    g.add_edge(nodes[1], '1')
-    g.add_edge('1', '2')
-    g.add_edge('2', nodes[4])
+    # g.add_edge(nodes[1], '1')
+    # g.add_edge('1', '2')
+    # g.add_edge('2', nodes[4])
 
     '''
-
+    
     g = nx.Graph(nx.read_graphml(GRID_PATH)).to_directed()
-    #return g
+    
+
+    
+    #return g.to_directed()
     return nx.Graph(nx.relabel_nodes(g, {
         n: chr(97 + n) for n in range(len(g.nodes()))
     })).to_directed()
-
+    
 
 # Create a test graph, pass it to a layouter and run.
-
 g = create_graph()
 layouter = OrthogonalLayouter(g)
 try:
     layouter.run()
 except Exception, e:
-    print e
-    print 'here'
-    graph = layouter.debug
-    pos = nx.get_node_attributes(graph, POSITION)
-    nx.draw_networkx(graph, pos)
-    
+    nx.get_node_attributes(layouter.g, POSITION)
+    nx.draw_networkx(layouter.g, pos=layouter.pos, node_size=200)
+
 
 
 # Draw the original graph.
@@ -408,7 +420,7 @@ x_margin = max([p[0] for p in layouter.pos.values()]) + buff
 # y_margin = 0#max([p[1] for p in layouter.pos.values()]) + buff
 print 'TOTAL:', len(layouter.graphs)
 #graph = layouter.debug
-for graph in layouter.graphs[0:5]:
+for graph in layouter.graphs:#[50:55]:
     pos = nx.get_node_attributes(graph, POSITION)
 
     old_pos = pos.copy()

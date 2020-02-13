@@ -113,7 +113,7 @@ class OrthogonalLayouter(object):
         return self._faces
 
     def get_planar_layout(self):
-        #return nx.spectral_layout(self.g)
+        return nx.spectral_layout(self.g)
         return nx.spring_layout(self.g, seed=0)
         return nx.nx_agraph.graphviz_layout(self.g, prog='neato')
 
@@ -139,7 +139,7 @@ class OrthogonalLayouter(object):
         emd.check_structure()
         return emd
 
-    def get_faces(self):
+    def get_all_faces(self):
         faces = []
         visited = set()
         for edge in self.embedding.edges():
@@ -162,51 +162,79 @@ class OrthogonalLayouter(object):
         return (other, corner)
 
     def get_inner_faces(self):
-        faces = self.get_faces()
+        all_faces = self.get_all_faces()
         ext_hedge = self.get_external_face_half_edge()
-        int_faces = filter(lambda x: ext_hedge not in x, faces)
+        int_faces = filter(lambda x: ext_hedge not in x, all_faces)
 
         # Build edge -> face dict.
         edge_to_face = {}
         for face in int_faces:
             edge_to_face.update(dict.fromkeys(face, face))
 
-        def rec_face(face, result):
 
-            print 'visit face:', face
+        # for e, fs in edge_to_face.items():
+        #     print e, '->', fs
+
+        #for f in set(edge_to_face.values()):
+        #    print '->', f
+
+        smallest_face = sorted(int_faces, key=lambda n: len(n))[0]
+        s = [smallest_face]
+        #done = False
+
+
+        #for f in int_faces:
+        #    print 'f:', f
+
+        i = 0
+        faces = []
+        while s and i < 10:
+            face = s.pop()
+            faces.append(face)
+
+            print ''
+            print 'face:', face, type(face), face in faces
+
+            #print 'faces:'
+            #for f in faces:
+            #    print hash(f), type(f), '->', f
 
             edge_to_adj_face = {
                 rev_edge: edge_to_face[rev_edge]
                 for rev_edge in face.reversed()
-                if rev_edge in edge_to_face
+                if rev_edge in edge_to_face and edge_to_face[rev_edge] not in faces
             }
+            edge_to_adj_face = sorted(edge_to_adj_face.items(),
+                                      key=lambda x: len(x[1]))
 
-            #next_faces = []
-            sorted_edge_to_adj_face = sorted(edge_to_adj_face.items(), 
-                key=lambda x: len(x[1]))
+            for edge, adj_face in edge_to_adj_face:
+                print '    ', edge, '->', adj_face
+                s.append(adj_face.set_from_edge(edge))
 
-            next_faces = []
-            for edge, adj_face in sorted_edge_to_adj_face:
-                if adj_face not in result:
-                    adj_face = adj_face.set_from_edge(edge)
-                    result.append(adj_face)
-                    next_faces.append(adj_face)
+            #if not s:
+            #    done = True
 
-            for next_face in next_faces:
-                rec_face(next_face, result)
-
-        # Sort faces so we can walk through the mesh.
-        #sort_faces = self._sort_faces_by_num_nodes(int_faces)
-        sort_faces = sorted(faces, key=lambda n: len(n))
-        result = [sort_faces[0]]
-        rec_face(sort_faces[0], result)
+            i += 1
 
         print ''
-        for i, face in enumerate(result):
+        for i, face in enumerate(faces):
             print 'Path:', i, '->', face
         print ''
 
-        return result
+
+        # Take the first face and put it on the stack.
+
+        # WHILE
+
+        # take face off stack.
+
+        # process.
+
+        # Gives new faces - put them on stack to process next.
+
+        return faces
+
+
 
     def _process_face(self, face_idx, g, indent):
 
@@ -394,9 +422,26 @@ def create_graph():
     })).to_directed()
     
 
+# f1 = Face.from_nodes([1,2,3])
+# f2 = Face.from_nodes([2,3,1])
+#
+# print f1 == f2
+# print f1 in [f2]
+
+# import sys
+# sys.exit()
+
+
 # Create a test graph, pass it to a layouter and run.
 g = create_graph()
 layouter = OrthogonalLayouter(g)
+
+nx.get_node_attributes(layouter.g, POSITION)
+nx.draw_networkx(layouter.g, pos=layouter.pos, node_size=200)
+
+#plt.show()
+import sys
+sys.exit()
 try:
     layouter.run()
 except Exception, e:

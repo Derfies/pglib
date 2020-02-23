@@ -1,36 +1,42 @@
 import networkx as nx
 
+from pglib.geometry.point import Point2d
 from const import ANGLE, DIRECTION, POSITION, LENGTH, Angle, Direction
 
 
 class OrthogonalMesh(nx.Graph):
 
-    def can_add_face(self, face):
-        dirs_match = []
+    @property
+    def node_positions(self):
+        return {
+            n: pos._data
+            for n, pos in nx.get_node_attributes(self, POSITION).items()
+        }
+    
+    # def can_add_face(self, face):
+    #     dirs_match = []
 
-        directions = {}
-        #self.directions = {}
-        for idx, edge, direction in face.edge_walk():
-            #directions.setdefault(direction, []).append(edge)
-            directions[edge] = direction
+    #     directions = {}
+    #     #self.directions = {}
+    #     for idx, edge, direction in face.edge_walk():
+    #         #directions.setdefault(direction, []).append(edge)
+    #         directions[edge] = direction
 
 
-        for edge in self.get_common_edges(face):
-            mesh_dir = self.edges[edge][DIRECTION]
-            rev_edge = tuple(reversed(edge))
-            face_dir = directions[rev_edge]
-            dirs_match.append(face_dir == Direction.opposite(mesh_dir))
-        return all(dirs_match)
+    #     for edge in self.get_common_edges(face):
+    #         mesh_dir = self.edges[edge][DIRECTION]
+    #         rev_edge = tuple(reversed(edge))
+    #         face_dir = directions[rev_edge]
+    #         dirs_match.append(face_dir == Direction.opposite(mesh_dir))
+    #     return all(dirs_match)
 
     def add_face(self, face):
         pos = face.get_node_positions()
-        offset = [0, 0]
+        offset = Point2d(0, 0)
         common_edges = self.get_common_edges(face)
         if common_edges:
             common_node = common_edges[0][0]
-            current = self.nodes[common_node][POSITION]
-            incoming = pos[common_node]
-            offset = (current[0] - incoming[0], current[1] - incoming[1])
+            offset = self.nodes[common_node][POSITION] - pos[common_node]
 
         self.add_edges_from(face)
 
@@ -39,22 +45,13 @@ class OrthogonalMesh(nx.Graph):
             num_faces = len(self.nodes.get(node, {}).get(ANGLE, {}))
             msg = 'Node {} has {} faces'.format(node, num_faces)
             assert num_faces < 4, msg
-
             attr = {face: face.angles[idx]}
             self.nodes[node].setdefault(ANGLE, {}).update(attr)
-            offset_pos = pos[node]
-            offset_pos[0] += offset[0]
-            offset_pos[1] += offset[1]
-            self.nodes[node][POSITION] = offset_pos
+            self.nodes[node][POSITION] = pos[node] + offset
 
-
-        #def _get_edge_directions(self):
         directions = {}
-        #self.directions = {}
         for idx, edge, direction in face.edge_walk():
-            #directions.setdefault(direction, []).append(edge)
             directions[edge] = direction
-        #return directions
 
         for edge_idx, edge in enumerate(face):
             attr = directions[edge]

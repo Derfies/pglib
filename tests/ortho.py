@@ -74,12 +74,15 @@ class OrthogonalFace(Face):
         assert len(edges) == len(angles) == len(angles), 'Number of edges, angles and lengths must be equal'
         assert sum(angles) == 360, 'Face not closed: {}'.format(angles)
 
+        # TODO: Wrap these in new Edge class?
         self.angles = tuple(angles)
         self.lengths = lengths
         self.direction = direction
 
         self.sides = {}
         for dir_ in Direction:
+
+            # TODO: If we use custom Edge class then use here also.
             indices = []
             lengths = []
             for index in self.get_direction_indices(dir_):
@@ -90,7 +93,7 @@ class OrthogonalFace(Face):
     def edge_walk(self):
         direction = self.direction
         for edge_idx, edge in enumerate(self.edges):
-            yield edge_idx, edge, direction
+            yield edge_idx, edge, direction     # TODO: Yield Edge class
             angle = self.angles[(edge_idx + 1) % len(self.angles)]
             if angle == Angle.inside:
                 direction += 1
@@ -107,10 +110,12 @@ class OrthogonalFace(Face):
 
     def get_node_positions(self):
         positions = {}
-        pos = [0, 0]
+        pos = Point2d(0, 0)
         for edge_idx, edge, direction in self.edge_walk():
-            positions[edge[0]] = pos[:]
-            length = self.lengths[edge_idx]# or 1
+            positions[edge[0]] = copy.copy(pos)
+
+            # TODO: Replace with more enum attributes?
+            length = self.lengths[edge_idx]
             if direction == Direction.up:
                 pos[1] += length
             elif direction == Direction.right:
@@ -273,7 +278,6 @@ class OrthogonalLayouter(object):
             state = NodeState(state_idx)
             if state == NodeState.known:
                 #try:
-
                 angles = []
                 try:
                     angles.append(g.get_explementary_angle(node))
@@ -281,7 +285,6 @@ class OrthogonalLayouter(object):
                     pass
                 poss_angles.append(angles)
                 # except:
-
                 #     print 'FAILED:', node#, nx.get_node_attributes(g, ANGLE).get(node)
                 #     self.debug = g
                 #     raise
@@ -316,39 +319,40 @@ class OrthogonalLayouter(object):
             lengths = [g.edges.get(edge, {}).get(LENGTH) for edge in face]
             oface = OrthogonalFace(face.edges, angles, lengths, walk_dir)
             ofaces.append(oface)
-
             bar = zip(oface.nodes, oface.angles)
-            #print ' ' * (indent + 2), 'Angles:', bar
+            print ' ' * (indent + 2), 'Angles:', bar
 
-            missing_lengths = {}
-            for dir_, opp_dir in (Direction.xs(), Direction.ys()):
-
-                # Define two sides - one with the shorter proposed length and 
-                # one with the longer proposed length.
-                min_side, max_side = oface.sides[opp_dir], oface.sides[dir_]
-                if max_side.proposed_length < min_side.proposed_length:
-                    min_side, max_side = max_side, min_side
-
+            # TODO: Clean up and move into separate function.
+            for this_dir, opp_dir in (Direction.xs(), Direction.ys()):
+                this_side, opp_side = oface.sides[this_dir], oface.sides[opp_dir]
                 #print ' ' * (indent + 6), 'Axis:', dir_, opp_dir
-            
-                max_length = max_side.proposed_length
 
-                if min_side.state == SideState.known:
-                    max_length = min_side.length
-                elif max_side.state == SideState.known:
-                    max_length = max_side.length
+                # See if both sides are known but of different lengths. Need to
+                # work out how we ended up here.
+                side_mismatch = this_side.state == opp_side.state == SideState.known and this_side.length != opp_side.length
+                assert not side_mismatch, 'Sides are both known but mismatched'
+
+                # Work out the maximum length. Assume the maximum length the
+                # side can be is the proposed length of the longest side. If
+                # either side if known then use that as the maximum length.
+                max_length = None
+                if this_side.state == SideState.known:
+                    max_length = this_side.length
+                elif opp_side.state == SideState.known:
+                    max_length = opp_side.length
+                elif this_side.state == opp_side.state == SideState.unknown:
+                    max_length = max(this_side.proposed_length, opp_side.proposed_length)
+                else:
+                    raise Exception('Unknown edge state: {}'.format(state))
                 #print ' ' * (indent + 8), 'max_length:', max_length
 
-                if min_side.state == SideState.unknown:
-                    min_side_edge = (max_length - min_side.known_length) / float(min_side.num_unknown_edges)
-                    for edge_idx in min_side.indices:
-                        oface.lengths[edge_idx] = oface.lengths[edge_idx] or min_side_edge
-
-                if max_side.state == SideState.unknown:
-                    max_side_edge = (max_length - max_side.known_length) / float(max_side.num_unknown_edges)
-                    for edge_idx in max_side.indices:
-                        oface.lengths[edge_idx] = oface.lengths[edge_idx] or max_side_edge
-
+                # If the min side has unknown edge lengths, set them here. 
+                for side in (this_side, opp_side):
+                    if side.state == SideState.known:
+                        continue
+                    edge_length = (max_length - side.known_length) / float(side.num_unknown_edges)
+                    for edge_idx in side.indices:
+                        oface.lengths[edge_idx] = oface.lengths[edge_idx] or edge_length
                 #print ' ' * (indent + 8), 'max_side_edge:', [oface.lengths[edge_idx] for edge_idx in max_side.indices]
 
         return ofaces
@@ -446,8 +450,9 @@ if __name__ == '__main__':
     print 'TOTAL:', len(layouter.graphs)
     #graph = layouter.debug
     for graph in layouter.graphs[0:5]:
-        pos = nx.get_node_attributes(graph, POSITION)
-        #print 'pos:', pos
+        pos = graph.node_positions#nx.get_node_attributes(graph, POSITION)
+        #pos = nx.get_node_attributes(graph, POSITION)
+        print 'pos:', pos
 
         old_pos = pos.copy()
         for nidx, p in pos.items():

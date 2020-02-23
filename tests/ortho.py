@@ -11,12 +11,13 @@ import enum
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from pglib.graph.const import ANGLE, DIRECTION, POSITION, Angle, Direction
+from pglib.geometry.point import Point2d
+from pglib.graph.const import ANGLE, DIRECTION, POSITION, LENGTH, Angle, Direction
 from pglib.graph.face import Face
 from pglib.graph.orthogonalmesh import OrthogonalMesh
 
 
-GRID_PATH = r'test01.graphml'
+GRID_PATH = r'test04.graphml'
 
 
 class NodeState(enum.IntEnum):
@@ -26,49 +27,90 @@ class NodeState(enum.IntEnum):
     known = 2
 
 
+class SideState(enum.IntEnum):
+
+    unknown = 0
+    known = 2
+
+
+class Side(object):
+
+    def __init__(self, direction, indices, lengths):
+        self.direction = direction
+
+        assert len(indices) == len(lengths), 'Number of indices and lengths must be equal'
+        self.indices = tuple(indices)
+        self.lengths = tuple(lengths)
+
+    @property
+    def state(self):
+        state = SideState.known
+        if None in self.lengths:
+            state = SideState.unknown 
+        return state
+
+    @property
+    def length(self):
+        return sum(self.lengths)
+
+    @property
+    def known_length(self):
+        return sum([l or 0 for l in self.lengths])
+
+    @property
+    def proposed_length(self):
+        return sum([l or 1 for l in self.lengths])
+
+    @property
+    def num_unknown_edges(self):
+        return self.lengths.count(None)
+
+
 class OrthogonalFace(Face):
 
-    def __init__(self, edges, angles, direction=Direction.up):
+    def __init__(self, edges, angles, lengths, direction=Direction.up):
         super(OrthogonalFace, self).__init__(edges)
 
+        assert len(edges) == len(angles) == len(angles), 'Number of edges, angles and lengths must be equal'
         assert sum(angles) == 360, 'Face not closed: {}'.format(angles)
 
-        self.angles = angles
-        self.lengths = {edge: 1 for edge in self}
+        self.angles = tuple(angles)
+        self.lengths = lengths
         self.direction = direction
-        self.edge_directions = self._get_edge_directions()
 
-    def get_direction_length(self, direction):
-        return sum([
-            self.lengths[edge]
-            for edge in self.edge_directions[direction]
-        ])
-
-    def _get_edge_directions(self):
-        directions = {}
-        self.directions = {}
-        for edge, direction in self.edge_walk():
-            directions.setdefault(direction, []).append(edge)
-            self.directions[edge] = direction
-        return directions
+        self.sides = {}
+        for dir_ in Direction:
+            indices = []
+            lengths = []
+            for index in self.get_direction_indices(dir_):
+                indices.append(index)
+                lengths.append(self.lengths[index])
+            self.sides[dir_] = Side(dir_, indices, lengths)
 
     def edge_walk(self):
         direction = self.direction
-        for idx, edge in enumerate(self.edges):
-            yield edge, direction
-            angle = self.angles[(idx + 1) % len(self.angles)]
+        for edge_idx, edge in enumerate(self.edges):
+            yield edge_idx, edge, direction
+            angle = self.angles[(edge_idx + 1) % len(self.angles)]
             if angle == Angle.inside:
                 direction += 1
             elif angle == Angle.outside:
                 direction -= 1
             direction = Direction.normalise(direction)
 
+    def get_direction_indices(self, direction):
+        return [
+            edge_idx
+            for edge_idx, edge, edge_dir in self.edge_walk()
+            if edge_dir == direction
+        ]
+
     def get_node_positions(self):
         positions = {}
         pos = [0, 0]
-        for edge, direction in self.edge_walk():
+        for edge_idx, edge, direction in self.edge_walk():
             positions[edge[0]] = pos[:]
-            length = self.lengths[edge]
+            length = self.lengths[edge_idx]# or 1
             if direction == Direction.up:
                 pos[1] += length
             elif direction == Direction.right:
@@ -113,7 +155,7 @@ class OrthogonalLayouter(object):
         return self._faces
 
     def get_planar_layout(self):
-        #return nx.spectral_layout(self.g)
+        return nx.spectral_layout(self.g)
         return nx.spring_layout(self.g, seed=0)
         return nx.nx_agraph.graphviz_layout(self.g, prog='neato')
 
@@ -194,39 +236,19 @@ class OrthogonalLayouter(object):
         print ''
         for i, face in enumerate(faces):
             print 'Face:', i, '->', face
-        print ''
 
         return faces
 
     def _process_face(self, face_idx, g, indent):
 
-        # if len(self.graphs) > 0:
-        #     return
-        
         face = self.faces[face_idx]
+        print ''
         print ' ' * indent, 'Process face:', face
 
         layouts = self.permute_layouts(g, face, indent)
         print ' ' * indent, 'Num layouts:', len(layouts)
-        for i, layout in enumerate(layouts):
-            # print ''
-            # print ' ' * (indent + 2), 'Eval layout:', i
-            # print ' ' * (indent + 2), 'Nodes:', layout.nodes
-            # print ' ' * (indent + 2), 'Face:', layout
-            # print ' ' * (indent + 2), 'Angles:', layout.angles
-            # print ' ' * (indent + 2), 'Directions:'
-            # for e in layout:
-            #     print ' ' * (indent + 2), e, '->', layout.directions[e]
 
-            # Note - we're doing a similar thing with node angles in permute
-            # layouts. This is essentially checkout compatible edge directions.
-            # Maybe move this there for consistency.
-            can_join = g.can_add_face(layout)
-            if not can_join:
-                # print ' ' * (indent + 2), '*** CANNOT JOIN ***'
-                continue
-            # else:
-            #     print ' ' * (indent + 2), 'JOINED! Remaining:', len(self.faces) - (face_idx+1)
+        for i, layout in enumerate(layouts):
 
             # Need to deep copy the graph or else attribute dicts are polluted
             # between copies.
@@ -237,10 +259,11 @@ class OrthogonalLayouter(object):
             if face_idx < len(self.faces) - 1:
                 self._process_face(face_idx + 1, g_copy, indent + 4)
             else:
-                #print ' ' * (indent + 2), 'FINISHED!'
                 self.graphs.append(g_copy)
 
-    def permute_layouts(self, g, face, indent):
+    def _permute_face_angles(self, g, face, indent):
+
+        print ' ' * indent, 'Permute angles:'
 
         # Warning! These edges aren't guaranteed to be contiguous.
         poss_angles = []
@@ -249,17 +272,28 @@ class OrthogonalLayouter(object):
             state_idx = len(filter(lambda edge: node in edge, common_edges))
             state = NodeState(state_idx)
             if state == NodeState.known:
-                poss_angles.append([g.get_explementary_angle(node)])
+                #try:
+
+                angles = []
+                try:
+                    angles.append(g.get_explementary_angle(node))
+                except ValueError:
+                    pass
+                poss_angles.append(angles)
+                # except:
+
+                #     print 'FAILED:', node#, nx.get_node_attributes(g, ANGLE).get(node)
+                #     self.debug = g
+                #     raise
             elif state == NodeState.unknown:
                 poss_angles.append(g.get_possible_angles(node))
             elif state == NodeState.free:
                 poss_angles.append(list(Angle))
-            else:
-                raise Exception('Unknown node state: {}'.format(state))
-            print ' ' * (indent + 2), node, state, poss_angles[-1]
-
+            print ' ' * (indent + 2), node, state, poss_angles[-1], nx.get_node_attributes(g, ANGLE).get(node)
         all_angle_perms = set(it.product(*poss_angles))
-        angle_perms = filter(lambda x: sum(x) == 360, all_angle_perms)
+        return filter(lambda x: sum(x) == 360, all_angle_perms)
+
+    def _get_next_walk_direction(self, g, face, indent):
 
         # Pick an edge-walk direction. If there's a common edge we need to use
         # that same edge's direction in order for the faces to join.
@@ -268,36 +302,56 @@ class OrthogonalLayouter(object):
         if rev_edge in g.edges:
             rev_walk_dir = g.edges[rev_edge][DIRECTION]
             walk_dir = Direction.opposite(rev_walk_dir)
+        return walk_dir
 
+    def permute_layouts(self, g, face, indent):
+
+        angle_perms = self._permute_face_angles(g, face, indent + 2)
+        walk_dir = self._get_next_walk_direction(g, face, indent + 2)
+        
         # Turn each set of 
-        layouts = []
+        ofaces = []
         for angles in angle_perms:
-            layout = OrthogonalFace(face.edges, angles, walk_dir) 
-            layouts.append(layout)
 
+            lengths = [g.edges.get(edge, {}).get(LENGTH) for edge in face]
+            oface = OrthogonalFace(face.edges, angles, lengths, walk_dir)
+            ofaces.append(oface)
 
-        """Permutes edge lengths"""
-        polygons = []
+            bar = zip(oface.nodes, oface.angles)
+            #print ' ' * (indent + 2), 'Angles:', bar
 
-        for layout in layouts:
+            missing_lengths = {}
+            for dir_, opp_dir in (Direction.xs(), Direction.ys()):
 
-            foobar = {}
-            for axis in (Direction.xs(), Direction.ys()):
-                lengths = {d: layout.get_direction_length(d) for d in axis}
-                min_dir = min(lengths, key=lengths.get)
-                min_length, max_length = lengths[min_dir], lengths[Direction.opposite(min_dir)]
-                all_length_perms = it.product(range(1, max_length + 1), repeat=min_length)
-                length_perms = filter(lambda x: sum(x) == max_length, all_length_perms)
-                foobar[min_dir] = length_perms
-                          
-            for perm in [dict(zip(foobar, v)) for v in it.product(*foobar.values())]:
-                poly = copy.deepcopy(layout)
-                for dir_, lengths in perm.items():
-                    for i, edge in enumerate(layout.edge_directions[dir_]):
-                        poly.lengths[edge] = lengths[i]
-                polygons.append(poly)
+                # Define two sides - one with the shorter proposed length and 
+                # one with the longer proposed length.
+                min_side, max_side = oface.sides[opp_dir], oface.sides[dir_]
+                if max_side.proposed_length < min_side.proposed_length:
+                    min_side, max_side = max_side, min_side
 
-        return polygons#, all_angle_perms, angle_perms, states, poss_angles
+                #print ' ' * (indent + 6), 'Axis:', dir_, opp_dir
+            
+                max_length = max_side.proposed_length
+
+                if min_side.state == SideState.known:
+                    max_length = min_side.length
+                elif max_side.state == SideState.known:
+                    max_length = max_side.length
+                #print ' ' * (indent + 8), 'max_length:', max_length
+
+                if min_side.state == SideState.unknown:
+                    min_side_edge = (max_length - min_side.known_length) / float(min_side.num_unknown_edges)
+                    for edge_idx in min_side.indices:
+                        oface.lengths[edge_idx] = oface.lengths[edge_idx] or min_side_edge
+
+                if max_side.state == SideState.unknown:
+                    max_side_edge = (max_length - max_side.known_length) / float(max_side.num_unknown_edges)
+                    for edge_idx in max_side.indices:
+                        oface.lengths[edge_idx] = oface.lengths[edge_idx] or max_side_edge
+
+                #print ' ' * (indent + 8), 'max_side_edge:', [oface.lengths[edge_idx] for edge_idx in max_side.indices]
+
+        return ofaces
 
     def run(self):
         self.idx = 0
@@ -351,7 +405,7 @@ def create_graph():
     
     g = nx.Graph(nx.read_graphml(GRID_PATH)).to_directed()
     
-
+    
     
     #return g.to_directed()
     return nx.Graph(nx.relabel_nodes(g, {
@@ -359,121 +413,159 @@ def create_graph():
     })).to_directed()
     
 
-# f1 = Face.from_nodes([1,2,3])
-# f2 = Face.from_nodes([2,3,1])
-#
-# print f1 == f2
-# print f1 in [f2]
+if __name__ == '__main__':
 
-# import sys
-# sys.exit()
+    #'''
+    
+    # Create a test graph, pass it to a layouter and run.
+    g = create_graph()
+    layouter = OrthogonalLayouter(g)
+    try:
+        layouter.run()
+    except:
+        if hasattr(layouter, 'debug'):
+            init_pyplot((10, 10))
+            pos = nx.get_node_attributes(layouter.debug, POSITION)
+            nx.draw_networkx(layouter.debug, pos=pos, node_size=200)
+            plt.show()
+        raise
 
+    # Draw the original graph.
+    init_pyplot((30, 5))
+    pos = layouter.pos
+    for n, p in pos.items():
+        p = list(p)
+        # p[0] *= 0.01
+        # p[1] *= 0.01
+        pos[n] = p
+    nx.draw_networkx(layouter.g, pos=pos, node_size=200)
 
-# Create a test graph, pass it to a layouter and run.
-g = create_graph()
-layouter = OrthogonalLayouter(g)
-
-# nx.get_node_attributes(layouter.g, POSITION)
-# nx.draw_networkx(layouter.g, pos=layouter.pos, node_size=200)
-
-# plt.show()
-# import sys
-# sys.exit()
-layouter.run()
-# except Exception, e:
-#     nx.get_node_attributes(layouter.g, POSITION)
-#     nx.draw_networkx(layouter.g, pos=layouter.pos, node_size=200)
-
-
-
-# Draw the original graph.
-init_pyplot((5, 3))
-pos = layouter.pos
-for n, p in pos.items():
-    p = list(p)
-    # p[0] *= 0.01
-    # p[1] *= 0.01
-    pos[n] = p
-nx.draw_networkx(layouter.g, pos=pos, node_size=200)
-
-buff = 1
-x_margin = max([p[0] for p in layouter.pos.values()]) + buff
-# y_margin = 0#max([p[1] for p in layouter.pos.values()]) + buff
-print 'TOTAL:', len(layouter.graphs)
-#graph = layouter.debug
-for graph in layouter.graphs:#[50:55]:
-    pos = nx.get_node_attributes(graph, POSITION)
-
-    old_pos = pos.copy()
-    for nidx, p in pos.items():
-        p[0] += x_margin
-        #p[1] += y_margin
-    x_margin = max([abs(p[0]) for p in old_pos.values()]) + buff
-
-    nx.draw_networkx(graph, pos)
-'''
-print 'rendering:', len(layouter.layouts)
-print 'num complete:', len(layouter.graphs)
-
-# Draw each polygon with its orthogonal vertex positions.
-y_margin= 0 
-colours = {0: 'red', 1: 'green'}
-buff = 5
-for face_idx, layouts in layouter.layouts.items():
+    buff = 4
     x_margin = max([p[0] for p in layouter.pos.values()]) + buff
-    
-    
-    for layout in layouts:
-        poss = layout.get_node_positions()
-        #print poss
-        old_poss = poss.copy()
-        for nidx, p in poss.items():
+    # y_margin = 0#max([p[1] for p in layouter.pos.values()]) + buff
+    print 'TOTAL:', len(layouter.graphs)
+    #graph = layouter.debug
+    for graph in layouter.graphs[0:5]:
+        pos = nx.get_node_attributes(graph, POSITION)
+        #print 'pos:', pos
+
+        old_pos = pos.copy()
+        for nidx, p in pos.items():
             p[0] += x_margin
-            p[1] += y_margin
-        x_margin = max([abs(p[0]) for p in old_poss.values()]) + buff
+            #p[1] += y_margin
+        x_margin = max([abs(p[0]) for p in old_pos.values()]) + buff
 
-        fg = nx.Graph()
-        fg.add_edges_from(layout)
-        nx.draw_networkx(fg, poss, node_color=colours[face_idx], node_size=200)
+        nx.draw_networkx(graph, pos)
 
-    y_margin -= 5#max([p[1] for p in poss]) + buff
+    plt.show()
 
-# Show all.
-'''
-plt.show()
+    #'''
 
+    '''
 
-
-
-
-'''
-f = Face.from_nodes(list(range(6)))
-angles = [
-    Angle.straight,
-    Angle.inside,
-    Angle.inside,
-    Angle.straight,
-    Angle.inside,
-    Angle.inside,
-]
-of = OrthogonalFace(f.edges, angles, Direction.up)
+    f = Face.from_nodes(range(5))
+    angles = [
+        Angle.straight,
+        Angle.inside,
+        Angle.inside,
+        Angle.inside,
+        Angle.inside,
+    ]
+    lengths = [
+        1,
+        1,
+        2,
+        1,
+        1,
+    ]
 
 
-print 'edges:', of.edges
-print 'nodes:', of.nodes
-print 'angles:', of.angles
-print 'walk start:', Direction.up
-for edge, dir_ in list(of.edge_walk(Direction.up)):
-    print 'walk:', edge, '->', dir_
+
+    f = OrthogonalFace(f.edges, angles, lengths)
+
+    for idx, edge, dir_ in f.edge_walk():
+        print idx, edge, dir_
 
 
-pos = of.get_node_positions()
-for node in of.nodes:
-    print 'node:', node, '->', pos[node]
+    fg = nx.Graph()
+    fg.add_edges_from(f)
+    nx.draw_networkx(fg, pos=f.get_node_positions())
 
-g = nx.Graph()
-g.add_edges_from(of)
-nx.draw_networkx(g, pos)
+    plt.show()
+    '''
 
-plt.show()
-'''
+
+    '''
+    f = Face.from_nodes(list(range(8)))
+    angles = [
+        Angle.straight,
+        Angle.straight,
+        Angle.inside,
+        Angle.inside,
+        Angle.straight,
+        Angle.straight,
+        Angle.inside,
+        Angle.inside,
+    ]
+    poss_lengths = [
+        5,
+        None,
+        None,
+        None,
+        2,
+        1,
+        None,
+        None,
+    ]
+    f = OrthogonalFace(f.edges, angles, poss_lengths)
+
+    
+
+
+    # def get_direction_indices(f, dir_):
+    #     return [
+    #         idx
+    #         for idx, edge, direction in f.edge_walk()
+    #         if direction == dir_
+    #     ]
+
+
+    # def get_direction_lengths(f, dir_, lengths, default=1):
+    #     return [
+    #         lengths[idx] or default
+    #         for idx in get_direction_indices(f, dir_)
+    #     ]
+
+
+    foobar = {}
+    for axis in (Direction.xs(), Direction.ys()):
+        print ''
+        print '*' * 35
+        lengths = {d: sum(f.get_direction_lengths(d)) for d in axis}
+        for d, l in lengths.items():
+            print d, '->', l
+
+        min_dir = min(lengths, key=lengths.get)
+        print 'min_dir:', min_dir
+
+        min_length, max_length = lengths[min_dir], lengths[Direction.opposite(min_dir)]
+        print 'min_length:', min_length
+        print 'max_length:', max_length
+
+        num_unknowns = f.get_direction_lengths(min_dir, None).count(None)
+        print 'num_unknowns:', num_unknowns
+
+        max_perm_length = max_length - sum(f.get_direction_lengths(min_dir, 0)) - (num_unknowns - 1)
+        print 'max_perm_length:', max_perm_length
+
+        edge_perms = [
+            range(1, max_perm_length + 1) if poss_lengths[idx] is None else [poss_lengths[idx]]
+            for idx in f.get_direction_indices(min_dir)
+        ]
+
+        for edge_perm in edge_perms:
+            print '->', edge_perm
+
+        all_length_perms = it.product(*edge_perms)
+        print 'all_length_perms:', filter(lambda x: sum(x) == max_length, all_length_perms)
+    '''

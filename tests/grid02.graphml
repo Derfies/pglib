@@ -40,47 +40,26 @@
         <default>1</default>
     </key>
     <graph edgedefault="directed">
-        <node id="N15"/>
-        <node id="N8"/>
-        <node id="N2"/>
-        <node id="N16"/>
+        <node id="N7"/>
+        <node id="N1"/>
         <node id="N5"/>
-        <node id="N11"/>
-        <node id="N14"/>
-        <node id="N10"/>
-        <node id="N18"/>
         <node id="N3"/>
         <node id="N9"/>
-        <node id="N1"/>
-        <node id="N12"/>
-        <node id="N7"/>
+        <node id="N2"/>
+        <node id="N8"/>
         <node id="N4"/>
         <node id="N6"/>
-        <node id="N17"/>
-        <node id="N13"/>
-        <edge id="E20" source="N15" target="N16"/>
-        <edge id="E8" source="N7" target="N2"/>
-        <edge id="E7" source="N7" target="N18"/>
-        <edge id="E18" source="N14" target="N15"/>
-        <edge id="E11" source="N9" target="N6"/>
-        <edge id="E17" source="N13" target="N14"/>
-        <edge id="E9" source="N7" target="N8"/>
-        <edge id="E4" source="N4" target="N1"/>
-        <edge id="E5" source="N4" target="N5"/>
-        <edge id="E14" source="N11" target="N12"/>
-        <edge id="E2" source="N2" target="N3"/>
-        <edge id="E19" source="N15" target="N12"/>
-        <edge id="E6" source="N5" target="N6"/>
-        <edge id="E16" source="N13" target="N9"/>
-        <edge id="E21" source="N16" target="N17"/>
-        <edge id="E23" source="N1" target="N18"/>
-        <edge id="E12" source="N5" target="N10"/>
-        <edge id="E10" source="N8" target="N9"/>
-        <edge id="E22" source="N17" target="N11"/>
+        <edge id="E11" source="N2" target="N9"/>
         <edge id="E3" source="N3" target="N4"/>
+        <edge id="E8" source="N3" target="N7"/>
+        <edge id="E7" source="N6" target="N3"/>
+        <edge id="E10" source="N8" target="N6"/>
         <edge id="E1" source="N1" target="N2"/>
-        <edge id="E15" source="N12" target="N13"/>
-        <edge id="E24" source="N18" target="N6"/>
-        <edge id="E13" source="N10" target="N11"/>
+        <edge id="E5" source="N4" target="N5"/>
+        <edge id="E2" source="N2" target="N3"/>
+        <edge id="E4" source="N1" target="N4"/>
+        <edge id="E12" source="N9" target="N7"/>
+        <edge id="E9" source="N7" target="N8"/>
+        <edge id="E6" source="N5" target="N6"/>
     </graph>
 </graphml>

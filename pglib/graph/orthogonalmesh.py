@@ -7,10 +7,18 @@ class OrthogonalMesh(nx.Graph):
 
     def can_add_face(self, face):
         dirs_match = []
+
+        directions = {}
+        #self.directions = {}
+        for idx, edge, direction in face.edge_walk():
+            #directions.setdefault(direction, []).append(edge)
+            directions[edge] = direction
+
+
         for edge in self.get_common_edges(face):
             mesh_dir = self.edges[edge][DIRECTION]
             rev_edge = tuple(reversed(edge))
-            face_dir = face.directions[rev_edge]
+            face_dir = directions[rev_edge]
             dirs_match.append(face_dir == Direction.opposite(mesh_dir))
         return all(dirs_match)
 
@@ -38,12 +46,22 @@ class OrthogonalMesh(nx.Graph):
             offset_pos[0] += offset[0]
             offset_pos[1] += offset[1]
             self.nodes[node][POSITION] = offset_pos
-        for edge in face:
-            attr = face.directions[edge]
+
+
+        #def _get_edge_directions(self):
+        directions = {}
+        #self.directions = {}
+        for idx, edge, direction in face.edge_walk():
+            #directions.setdefault(direction, []).append(edge)
+            directions[edge] = direction
+        #return directions
+
+        for edge_idx, edge in enumerate(face):
+            attr = directions[edge]
             self.edges[edge][DIRECTION] = attr
 
-        for edge in face:
-            attr = face.lengths[edge]
+        for edge_idx, edge in enumerate(face):
+            attr = face.lengths[edge_idx]
             self.edges[edge][LENGTH] = attr
 
     def get_common_edges(self, face):

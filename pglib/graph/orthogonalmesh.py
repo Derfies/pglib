@@ -45,21 +45,13 @@ class OrthogonalMesh(nx.Graph):
             num_faces = len(self.nodes.get(node, {}).get(ANGLE, {}))
             msg = 'Node {} has {} faces'.format(node, num_faces)
             assert num_faces < 4, msg
-            attr = {face: face.angles[idx]}
+            attr = {face: face.edges[idx].angle}
             self.nodes[node].setdefault(ANGLE, {}).update(attr)
             self.nodes[node][POSITION] = pos[node] + offset
 
-        directions = {}
-        for idx, edge, direction in face.edge_walk():
-            directions[edge] = direction
-
         for edge_idx, edge in enumerate(face):
-            attr = directions[edge]
-            self.edges[edge][DIRECTION] = attr
-
-        for edge_idx, edge in enumerate(face):
-            attr = face.lengths[edge_idx]
-            self.edges[edge][LENGTH] = attr
+            self.edges[edge][DIRECTION] = edge.direction
+            self.edges[edge][LENGTH] = edge.length
 
     def get_common_edges(self, face):
         return filter(lambda x: x in self.edges, face.reversed())

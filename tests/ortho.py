@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 from pglib.geometry.point import Point2d
 from pglib.graph.const import ANGLE, DIRECTION, POSITION, LENGTH, Angle, Direction
-from pglib.graph.face import Face
+from pglib.graph.face import Face, Edge
 from pglib.graph.orthogonalmesh import OrthogonalMesh
 
 
@@ -35,12 +35,9 @@ class SideState(enum.IntEnum):
 
 class Side(object):
 
-    def __init__(self, direction, indices, lengths):
+    def __init__(self, edges, direction):
+        self.edges = tuple(edges)
         self.direction = direction
-
-        assert len(indices) == len(lengths), 'Number of indices and lengths must be equal'
-        self.indices = tuple(indices)
-        self.lengths = tuple(lengths)
 
     @property
     def state(self):
@@ -52,6 +49,10 @@ class Side(object):
     @property
     def length(self):
         return sum(self.lengths)
+
+    @property
+    def lengths(self):
+        return [e.length for e in self.edges]
 
     @property
     def known_length(self):
@@ -66,64 +67,86 @@ class Side(object):
         return self.lengths.count(None)
 
 
+class OrthogonalEdge(Edge):
+
+    def __init__(self, angle, length, direction, index, *args):
+        super(OrthogonalEdge, self).__init__(*args)
+        
+        self._angle = angle
+        self.length = length
+        self._direction = direction
+        self._index = index
+
+    @property
+    def angle(self):
+        return self._angle
+
+    @property
+    def direction(self):
+        return self._direction
+
+    @property
+    def index(self):
+        return self._index
+
+    def reversed(self):
+        return self.__class__(
+            self._angle, 
+            self.length, 
+            self.direction, 
+            self.index,
+            reversed(self._nodes)
+        )
+
+
 class OrthogonalFace(Face):
 
-    def __init__(self, edges, angles, lengths, direction=Direction.up):
-        super(OrthogonalFace, self).__init__(edges)
+    edge_class = OrthogonalEdge
 
+    def __init__(self, edges, angles, lengths, direction=Direction.up):
         assert len(edges) == len(angles) == len(angles), 'Number of edges, angles and lengths must be equal'
         assert sum(angles) == 360, 'Face not closed: {}'.format(angles)
-
-        # TODO: Wrap these in new Edge class?
-        self.angles = tuple(angles)
-        self.lengths = lengths
+        
         self.direction = direction
-
+        super(OrthogonalFace, self).__init__(
+            angles, 
+            lengths, 
+            self._get_directions(edges, angles), 
+            list(range(len(edges))), 
+            edges
+        )
+        
         self.sides = {}
-        for dir_ in Direction:
+        for direction in Direction:
+            edges = filter(lambda edge: edge.direction == direction, self.edges)
+            self.sides[direction] = Side(edges, direction)
 
-            # TODO: If we use custom Edge class then use here also.
-            indices = []
-            lengths = []
-            for index in self.get_direction_indices(dir_):
-                indices.append(index)
-                lengths.append(self.lengths[index])
-            self.sides[dir_] = Side(dir_, indices, lengths)
-
-    def edge_walk(self):
+    def _get_directions(self, edges, angles):
+        directions = []
         direction = self.direction
-        for edge_idx, edge in enumerate(self.edges):
-            yield edge_idx, edge, direction     # TODO: Yield Edge class
-            angle = self.angles[(edge_idx + 1) % len(self.angles)]
+        for edge_idx, edge in enumerate(edges):
+            directions.append(direction)
+            angle = angles[(edge_idx + 1) % len(angles)]
             if angle == Angle.inside:
                 direction += 1
             elif angle == Angle.outside:
                 direction -= 1
             direction = Direction.normalise(direction)
-
-    def get_direction_indices(self, direction):
-        return [
-            edge_idx
-            for edge_idx, edge, edge_dir in self.edge_walk()
-            if edge_dir == direction
-        ]
+        return directions
 
     def get_node_positions(self):
         positions = {}
         pos = Point2d(0, 0)
-        for edge_idx, edge, direction in self.edge_walk():
+        for edge in self.edges:
             positions[edge[0]] = copy.copy(pos)
-
-            # TODO: Replace with more enum attributes?
-            length = self.lengths[edge_idx]
-            if direction == Direction.up:
-                pos[1] += length
-            elif direction == Direction.right:
-                pos[0] += length
-            elif direction == Direction.down:
-                pos[1] -= length
-            elif direction == Direction.left:
-                pos[0] -= length
+            if edge.direction == Direction.up:
+                pos[1] += edge.length
+            elif edge.direction == Direction.right:
+                pos[0] += edge.length
+            elif edge.direction == Direction.down:
+                pos[1] -= edge.length
+            elif edge.direction == Direction.left:
+                pos[0] -= edge.length
             else:
                 raise Exception('Unknown direction: {}'.format(direction))
         return positions
@@ -247,11 +270,11 @@ class OrthogonalLayouter(object):
     def _process_face(self, face_idx, g, indent):
 
         face = self.faces[face_idx]
-        print ''
-        print ' ' * indent, 'Process face:', face
+        #print ''
+        #print ' ' * indent, 'Process face:', face
 
         layouts = self.permute_layouts(g, face, indent)
-        print ' ' * indent, 'Num layouts:', len(layouts)
+        #print ' ' * indent, 'Num layouts:', len(layouts)
 
         for i, layout in enumerate(layouts):
 
@@ -268,7 +291,7 @@ class OrthogonalLayouter(object):
 
     def _permute_face_angles(self, g, face, indent):
 
-        print ' ' * indent, 'Permute angles:'
+        #print ' ' * indent, 'Permute angles:'
 
         # Warning! These edges aren't guaranteed to be contiguous.
         poss_angles = []
@@ -292,7 +315,7 @@ class OrthogonalLayouter(object):
                 poss_angles.append(g.get_possible_angles(node))
             elif state == NodeState.free:
                 poss_angles.append(list(Angle))
-            print ' ' * (indent + 2), node, state, poss_angles[-1], nx.get_node_attributes(g, ANGLE).get(node)
+            #print ' ' * (indent + 2), node, state, poss_angles[-1], nx.get_node_attributes(g, ANGLE).get(node)
         all_angle_perms = set(it.product(*poss_angles))
         return filter(lambda x: sum(x) == 360, all_angle_perms)
 
@@ -319,8 +342,8 @@ class OrthogonalLayouter(object):
             lengths = [g.edges.get(edge, {}).get(LENGTH) for edge in face]
             oface = OrthogonalFace(face.edges, angles, lengths, walk_dir)
             ofaces.append(oface)
-            bar = zip(oface.nodes, oface.angles)
-            print ' ' * (indent + 2), 'Angles:', bar
+            #bar = zip(oface.nodes, oface.angles)
+            #print ' ' * (indent + 2), 'Angles:', bar
 
             # TODO: Clean up and move into separate function.
             for this_dir, opp_dir in (Direction.xs(), Direction.ys()):
@@ -351,8 +374,9 @@ class OrthogonalLayouter(object):
                     if side.state == SideState.known:
                         continue
                     edge_length = (max_length - side.known_length) / float(side.num_unknown_edges)
-                    for edge_idx in side.indices:
-                        oface.lengths[edge_idx] = oface.lengths[edge_idx] or edge_length
+                    #for edge_idx in side.indices:
+                    for edge in side.edges:
+                        oface[edge.index].length = oface[edge.index].length or edge_length
                 #print ' ' * (indent + 8), 'max_side_edge:', [oface.lengths[edge_idx] for edge_idx in max_side.indices]
 
         return ofaces
@@ -452,7 +476,7 @@ if __name__ == '__main__':
     for graph in layouter.graphs[0:5]:
         pos = graph.node_positions#nx.get_node_attributes(graph, POSITION)
         #pos = nx.get_node_attributes(graph, POSITION)
-        print 'pos:', pos
+        #print 'pos:', pos
 
         old_pos = pos.copy()
         for nidx, p in pos.items():

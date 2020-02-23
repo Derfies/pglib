@@ -1,7 +1,38 @@
-class Face(object):
+from collections import Sequence
+
+
+class Edge(Sequence):
     
-    def __init__(self, edges):
-        self.edges = tuple(edges)
+    def __init__(self, nodes):
+        self._nodes = tuple(nodes)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._nodes == other._nodes
+        return self._nodes == other
+
+    def __str__(self):
+        return str(self._nodes)
+
+    def __len__(self):
+        return len(self._nodes)
+
+    def __hash__(self):
+        return hash(self._nodes)  
+
+    def __getitem__(self, index):
+        return self._nodes[index]
+
+    def reversed(self):
+        return self.__class__(reversed(self._nodes))
+
+
+class Face(object):
+
+    edge_class = Edge
+    
+    def __init__(self, *args):
+        self.edges = tuple([self.edge_class(*args) for args in zip(*args)])
 
     @classmethod
     def from_nodes(cls, nodes):
@@ -19,7 +50,7 @@ class Face(object):
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return set(self.edges) == set(other.edges)
+            return set(self) == set(other)
         return False
 
     def __str__(self):
@@ -35,7 +66,7 @@ class Face(object):
         return self.edges.index(edge)
 
     def reversed(self):
-        return Face([tuple(reversed(edge)) for edge in self])
+        return Face(map(self.edge_class.reversed, self))
 
     def set_from_edge(self, edge):
         idx = self.index(edge)

@@ -37,7 +37,11 @@ class Side(object):
 
     def __init__(self, edges, direction):
         self.edges = tuple(edges)
-        self.direction = direction
+        self._direction = direction
+
+    @property
+    def direction(self):
+        return self._direction
 
     @property
     def state(self):
@@ -52,7 +56,7 @@ class Side(object):
 
     @property
     def lengths(self):
-        return [e.length for e in self.edges]
+        return [edge.length for edge in self.edges]
 
     @property
     def known_length(self):
@@ -125,7 +129,7 @@ class OrthogonalFace(Face):
         directions = []
         direction = self.direction
         for edge_idx, edge in enumerate(edges):
-            directions.append(direction)
+            directions.append(direction)        # This looks odd. Append at the end?
             angle = angles[(edge_idx + 1) % len(angles)]
             if angle == Angle.inside:
                 direction += 1

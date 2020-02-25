@@ -194,7 +194,7 @@ class OrthogonalLayouter(object):
     def get_external_face_half_edge(self):
         corner = min(self.pos, key=lambda n: (self.pos[n][0], self.pos[n][1]))
         other = max(
-            g.adj[corner], key=lambda node:
+            self.g.adj[corner], key=lambda node:
             (self.pos[node][1] - self.pos[corner][1]) /
             math.hypot(
                 self.pos[node][0] - self.pos[corner][0],

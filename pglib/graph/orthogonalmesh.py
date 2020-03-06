@@ -4,7 +4,7 @@ from pglib.geometry.point import Point2d
 from const import ANGLE, DIRECTION, POSITION, LENGTH, Angle, Direction
 
 
-class OrthogonalMesh(nx.Graph):
+class OrthogonalMesh(nx.DiGraph):
 
     @property
     def node_positions(self):

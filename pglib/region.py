@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 from const import *
-from geometry import Point2d
+from geometry.point import Point2d
 
 
 class Region(object):
@@ -17,7 +17,7 @@ class Region(object):
         # TO DO:
         # Turn above attributes into properties also so we can resize the matrix
         # where necessary.
-        self.matrix = np.full((self.width, self.height), value)
+        #self.matrix = np.full((self.width, self.height), value)
         self.left_child = None
         self.right_child = None
 

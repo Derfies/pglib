@@ -9,19 +9,37 @@ logger = logging.getLogger(__name__)
 
 class Base(object):
 
-    def __init__(self, next_generator):
-        self.next_generator = next_generator
+    __metaclass__ = abc.ABCMeta
 
-        self.generators = []
+    def __init__(self):
+        self.parent_generator = None
+        self.generators = {}
 
-    def run(self, nodes):
+    @abc.abstractproperty
+    def set_names(self):
+        """"""
 
-        # Run this selector.
+    def set_generator(self, name, gen):
+        if name not in self.set_names:
+            raise ValueError('{} is not a valid set name'.format(name))
+        self.generators[name] = gen
+
+    @abc.abstractmethod
+    def select(self):
+        """"""
+
+    def run(self):
+
         logger.info('Running selector')
 
-        cls = self.next_generator
-        for node in nodes:
-            obj = cls(10, 10)
-            self.generators.append(obj)
-            obj.input_node = Node(node)
-            obj.run()
+        # Run this selector.
+        buckets = self.select()
+
+        # Pass the nodes to the next generator.
+        # TODO: Should generators take a single node or list of nodes as input?
+        for name, nodes in buckets.items():
+            if name not in self.generators:
+                logger.info('Ignoring output: {}'.format(name))
+                continue
+            self.generators[name].input_node = Node(nodes[0])
+            self.generators[name].run()

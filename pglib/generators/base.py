@@ -7,10 +7,19 @@ logger = logging.getLogger(__name__)
 
 class Base(object):
 
-    def __init__(self, selector=None):
+    """
+    Notes: 
+
+    Can a bsp tree be a dynamic tree of generator / selectors at runtime?
+    """
+
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self):
         self._input_node = None
+        self._selector = None
+
         self.output_nodes = []
-        self.selector = selector
 
     @property
     def input_node(self):
@@ -19,6 +28,15 @@ class Base(object):
     @input_node.setter
     def input_node(self, node):
         self._input_node = node
+
+    @property
+    def selector(self):
+        return self._selector
+
+    @selector.setter
+    def selector(self, selector):
+        selector.parent_generator = self
+        self._selector = selector
 
     @abc.abstractmethod
     def generate(self):
@@ -30,8 +48,10 @@ class Base(object):
 
         # Run this generator.
         self.output_nodes = self.generate()
+
+        # Pass the output to the selector if one is defined.
         if self.selector is not None:
-            self.selector.run(self.output_nodes)
+            self.selector.run()
 
 
 

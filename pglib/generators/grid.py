@@ -4,8 +4,8 @@ from base import Base
 
 class Grid(Base):
 
-    def __init__(self, num_rows, num_cols, *args, **kwargs):
-        super(Grid, self).__init__(*args, **kwargs)
+    def __init__(self, num_rows, num_cols):
+        super(Grid, self).__init__()
 
         self.num_rows = num_rows
         self.num_cols = num_cols

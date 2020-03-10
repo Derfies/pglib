@@ -2,6 +2,10 @@ import os
 import sys
 if os.path.dirname(__file__) not in sys.path:
     sys.path.append(os.path.dirname(__file__))
+test_dir = os.path.join(os.path.dirname(__file__), '..', 'tests')
+if test_dir not in sys.path:
+    sys.path.append(test_dir)
+
 import logging
 
 import pyglet
@@ -12,6 +16,7 @@ from pglib.node import Node
 from pglib.region import Region
 from pglib.generators.grid import Grid
 from pglib.selectors.random import Random
+from pglib.selectors.chunk import Chunk
 
 
 logger = logging.getLogger(__name__)
@@ -26,9 +31,14 @@ HEIGHT = 480
 #class GridOfGrids()
 
 
-rnd_sel = Random(Grid)
-g = Grid(2, 2, selector=rnd_sel)
+# First level
+g = Grid(2, 2)
 g.input_node = Node(Region(0, 0, 40, 40))
+g.selector = Chunk(2)
+
+# Second level
+g2 = Grid(2, 2)
+g.selector.set_generator('1', g2)
 g.run()
 
 
@@ -48,7 +58,7 @@ def on_draw():
             strokewidth=10,
         )
 
-        for generator in g.selector.generators:
+        for generator in g.selector.generators.values():
             for node in generator.output_nodes:
                 pygutils.region_to_rect(
                     node, 

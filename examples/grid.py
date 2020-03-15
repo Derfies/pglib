@@ -15,8 +15,11 @@ from pglib import utils
 from pglib.node import Node
 from pglib.region import Region
 from pglib.generators.grid import Grid
+from pglib.generators.column import Column
 from pglib.selectors.random import Random
 from pglib.selectors.chunk import Chunk
+from pglib.selectors.half import Half
+from pglib.selectors.column import Column as ColumnSelector
 
 
 logger = logging.getLogger(__name__)
@@ -28,19 +31,15 @@ WIDTH = 640
 HEIGHT = 480
 
 
-#class GridOfGrids()
-
-
-# First level
-g = Grid(2, 2)
-g.input_node = Node(Region(0, 0, 40, 40))
-g.selector = Chunk(2)
-
-# Second level
-g2 = Grid(2, 2)
-g.selector.set_generator('1', g2)
-g.run()
-
+# Create root node.
+root_node = Node()
+#root_node.data.append(Region(0, 0, 10, 20))
+root_node.data.append(Region(0, 0, 10, 40))
+root_node.data.append(Region(20, 0, 30, 30))
+root_node.generator = Column(10)
+root_node.selector = ColumnSelector()
+root_node.selector.generator = Column(5)
+root_node.evaluate()
 
 
 window = pyglet.window.Window()
@@ -50,21 +49,27 @@ def on_draw():
     window.clear()
     pygutils.grid(WIDTH, HEIGHT, GRID_SPACING, (0.25, 0.25, 0.25, 1))
 
-    for node in g.output_nodes:
-        pygutils.region_to_rect(
-            node, 
-            grid_spacing=GRID_SPACING, 
-            stroke=utils.get_random_colour(),
-            strokewidth=10,
-        )
+    for node in root_node.children:
+        #print 'top node:', node, len(node.data)
+        for region in node.data:
+            #print region
+            pygutils.region_to_rect(
+                region, 
+                grid_spacing=GRID_SPACING, 
+                stroke=utils.get_random_colour(),
+                strokewidth=10,
+            )
 
-        for generator in g.selector.generators.values():
-            for node in generator.output_nodes:
+        for cnode in node.children:
+            #print 'cnode:', cnode, 'num regions:', len(cnode.data)
+            #print 'render cnode'
+            for cregion in cnode.data:
+                #print '   ', cregion
                 pygutils.region_to_rect(
-                    node, 
+                    cregion, 
                     grid_spacing=GRID_SPACING, 
                     stroke=utils.get_random_colour(),
-                    strokewidth=2,
+                    strokewidth=1,
                 )
         
 

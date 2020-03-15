@@ -15,28 +15,28 @@ class Base(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self):
-        self._input_node = None
-        self._selector = None
+    # def __init__(self):
+    #     #self._input_node = None
+    #     #self._selector = None
 
-        self.output_nodes = []
+    #     self.output_nodes = []
 
-    @property
-    def input_node(self):
-        return self._input_node
+    # @property
+    # def input_node(self):
+    #     return self._input_node
 
-    @input_node.setter
-    def input_node(self, node):
-        self._input_node = node
+    # @input_node.setter
+    # def input_node(self, node):
+    #     self._input_node = node
 
-    @property
-    def selector(self):
-        return self._selector
+    # @property
+    # def selector(self):
+    #     return self._selector
 
-    @selector.setter
-    def selector(self, selector):
-        selector.parent_generator = self
-        self._selector = selector
+    # @selector.setter
+    # def selector(self, selector):
+    #     selector.parent_generator = self
+    #     self._selector = selector
 
     @abc.abstractmethod
     def generate(self):
@@ -47,11 +47,11 @@ class Base(object):
         logger.info('Running generator')
 
         # Run this generator.
-        self.output_nodes = self.generate()
+        return self.generate()
 
         # Pass the output to the selector if one is defined.
-        if self.selector is not None:
-            self.selector.run()
+        #if self.selector is not None:
+        #    self.selector.run()
 
 
 

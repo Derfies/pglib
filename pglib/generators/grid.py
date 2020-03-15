@@ -10,16 +10,16 @@ class Grid(Base):
         self.num_rows = num_rows
         self.num_cols = num_cols
 
-    def generate(self):
+    def generate(self, region):
         regions = []
 
-        x = self.input_node.data.width / float(self.num_cols)
-        y = self.input_node.data.height / float(self.num_rows)
+        x = region.width / float(self.num_cols)
+        y = region.height / float(self.num_rows)
 
         for i in range(self.num_cols):
-            x_offset = self.input_node.data.x1 + i * x
+            x_offset = region.x1 + i * x
             for j in range(self.num_rows):
-                y_offset = self.input_node.data.y1 + j * y
+                y_offset = region.y1 + j * y
                 regions.append(Region(x_offset, y_offset, x_offset + x, y_offset + y))
 
         return regions

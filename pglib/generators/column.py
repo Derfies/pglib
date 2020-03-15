@@ -9,7 +9,7 @@ class Column(Base):
 
         self.segment_height = segment_height
 
-    def generate(self, region):
+    def run(self, region):
         #print 'region:', region
         regions = []
         num_cols = region.height / self.segment_height

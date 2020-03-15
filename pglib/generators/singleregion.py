@@ -4,6 +4,10 @@ from base import Base
 
 class SingleRegion(Base):
 
-    def generate(self):
-        r = self.input_node.data
-        return [Region(r.x1, r.y1, r.x2, r.y2)]
+    def __init__(self, colour):
+        super(SingleRegion, self).__init__()
+
+        self.colour = colour
+
+    def run(self, region):
+        return [Region(region.x1, region.y1, region.x2, region.y2)]

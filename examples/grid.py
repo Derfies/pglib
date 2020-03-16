@@ -16,13 +16,16 @@ from pglib import utils
 from pglib.node import Node
 from pglib.region import Region
 from pglib.generators.grid import Grid
-from pglib.generators.column import Column
+from pglib.generators.column import Column as ColumnGenerator
 from pglib.generators.singleregion import SingleRegion
+from pglib.generators.randomregions import RandomRegions
 from pglib.generators.image import Image
 from pglib.selectors.random import Random
 from pglib.selectors.chunk import Chunk
 from pglib.selectors.half import Half
+from pglib.selectors.all import All
 from pglib.selectors.column import Column as ColumnSelector
+from pglib.samplers.range import Range
 
 
 logger = logging.getLogger(__name__)
@@ -42,20 +45,19 @@ gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
 
 
 # Create root node and add some data.
-root_node = Node()
-root_node.data.append(Region(10, 10, 20, 20))
-root_node.data.append(Region(30, 10, 40, 30))
-root_node.data.append(Region(50, 10, 60, 40))
-root_node.data.append(Region(70, 10, 80, 50))
-root_node.data.append(Region(90, 10, 100, 60))
+root_node = Node('root', RandomRegions(Range(10, 10), Range(10, 80), 200), All())
 
-root_node.generator = Column(10)
-root_node.selector = ColumnSelector()
-root_node.selector.map = {
-    'bottom': Image('pillar_bottom'),
-    'middle': Image('pillar_middle'),
-    'top': Image('pillar_top'),
-}
+next_node = Node('all', ColumnGenerator(10), ColumnSelector())
+root_node.add_child(next_node)
+
+next_node.add_child(Node('bottom', Image('pillar_bottom')))
+next_node.add_child(Node('middle', Image('pillar_middle')))
+next_node.add_child(Node('top', Image('pillar_top')))
+
+
+
+
+root_node.data.append(Region(0, 0, 160, 80))
 root_node.evaluate()
 
 
@@ -78,24 +80,44 @@ def on_draw():
         #     )
 
         for cnode in node.children:
-            #print 'cnode:', cnode, 'num regions:', len(cnode.data)
+            #print 'cnode:', cnode, 'num children:', len(cnode.data)
             #print 'render cnode'
-            for cregion in cnode.data:
+           # for cregion in cnode.data:
 
-                if not hasattr(cregion, 'sprite'):
-                    #print '   ', cregion
-                    pygutils.region_to_rect(
-                        cregion, 
-                        grid_spacing=GRID_SPACING, 
-                        stroke=utils.get_random_colour(),
-                        strokewidth=1,
-                        #fill=node.generator.colour
-                    )
-                else:
-                    pyglet.gl.glColor4f(1, 1, 1, 1)
-                    cregion.sprite_image.texture.width = cregion.width * GRID_SPACING
-                    cregion.sprite_image.texture.height = cregion.height * GRID_SPACING
-                    cregion.sprite_image.blit(cregion.x1 * GRID_SPACING, cregion.y1 * GRID_SPACING)
+                # if not hasattr(cregion, 'sprite'):
+                #     #print '   ', cregion.x1, cregion.y1
+                #     pygutils.region_to_rect(
+                #         cregion, 
+                #         grid_spacing=GRID_SPACING, 
+                #         stroke=utils.get_random_colour(),
+                #         strokewidth=1,
+                #         #fill=node.generator.colour
+                #     )
+                # else:
+                #     pyglet.gl.glColor4f(1, 1, 1, 1)
+                #     cregion.sprite_image.texture.width = cregion.width * GRID_SPACING
+                #     cregion.sprite_image.texture.height = cregion.height * GRID_SPACING
+                #     cregion.sprite_image.blit(cregion.x1 * GRID_SPACING, cregion.y1 * GRID_SPACING)
+
+            for ccnode in cnode.children:
+                #print 'ccnode:', ccnode, 'num children:', len(ccnode.data)
+                #print 'render cnode'
+                for cregion in ccnode.data:
+
+                    if not hasattr(cregion, 'sprite'):
+                        #print '   ', cregion.x1, cregion.y1
+                        pygutils.region_to_rect(
+                            cregion, 
+                            grid_spacing=GRID_SPACING, 
+                            stroke=utils.get_random_colour(),
+                            strokewidth=1,
+                            #fill=node.generator.colour
+                        )
+                    else:
+                        pyglet.gl.glColor4f(1, 1, 1, 1)
+                        cregion.sprite_image.texture.width = cregion.width * GRID_SPACING
+                        cregion.sprite_image.texture.height = cregion.height * GRID_SPACING
+                        cregion.sprite_image.blit(cregion.x1 * GRID_SPACING, cregion.y1 * GRID_SPACING)
         
 
 pyglet.app.run()

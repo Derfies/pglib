@@ -1,6 +1,23 @@
+import inspect
+from operator import itemgetter 
+
+
 class Base(object):
 
-    def __init__(self, data=None):
-        self.data = data or []
+    @property
+    def properties(self):
 
-        self.map = {}
+        # TODO: Make this more explicit so user-added properties or decorators
+        # don't show up here.
+        def predicate(obj):
+            return isinstance(obj, property)
+        members = inspect.getmembers(self.__class__, predicate)
+        names = map(itemgetter(0), members)
+        names.remove('properties')
+        return names
+
+    def select(self, name, data):
+
+        # TODO: Don't change object state here.
+        self.data = data
+        return getattr(self, name)

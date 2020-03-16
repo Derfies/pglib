@@ -2,32 +2,34 @@ import random
 
 from pglib import utils
 from pglib.region import Region
-from pglib.generator.base import Base
+from base import Base
 
 
 class RandomRegions(Base):
 
-    def __init__(self, min_size, max_size, max_iters, intersect=False,
+    def __init__(self, width_sampler, height_sampler, max_iters, intersect=False,
                  center_weight=None):
-        self.min_size = min_size
-        self.max_size = max_size
+        self.width_sampler = width_sampler
+        self.height_sampler = height_sampler
         self.max_iters = max_iters
         self.intersect = intersect
         self.center_weight = center_weight
 
-    def generate(self):
+    def run(self, p_region):
         regions = []
         for i in xrange(self.max_iters):
 
             # Randomise some dimensions.
-            w = random.randint(self.min_size, self.max_size)
-            h = random.randint(self.min_size, self.max_size)
+            #w = random.randint(self.min_size, self.max_size)
+            #h = random.randint(self.min_size, self.max_size)
+            w = self.width_sampler.run()
+            h = self.height_sampler.run()
 
             # Randomise some coords. Weight them towards the center if
             # specified.
             x, y = 0, 0
-            rx = self.input_node.data.width - w
-            ry = self.input_node.data.height - h
+            rx = p_region.width - w
+            ry = p_region.height - h
 
             if self.center_weight is not None:
                 xWeights = {i: center_weight(i / (float(rx) - 1) * 180.0) for i
@@ -52,13 +54,3 @@ class RandomRegions(Base):
                     regions.append(region)
 
         return regions
-
-
-if __name__ == '__main__':
-
-    from pglib.node import Node
-    from pglib.region import Region
-
-    g = RandomRegions(0, 10, 100)
-    g.input_node = Node(Region(0, 0, 100, 100))
-    g.run()

@@ -37,7 +37,7 @@ class Node(object):
 
             # If no selector has been set, wrap the output in a node and call it
             # a day.
-            if self.selector is None:
+            if self.selector is None or not self.children:
                 self._children.append(Node('unnamed', data=output))
                 continue
 

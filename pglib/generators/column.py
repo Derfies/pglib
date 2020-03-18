@@ -10,15 +10,13 @@ class Column(Base):
         self.segment_height = segment_height
 
     def run(self, region):
-        #print 'region:', region
         regions = []
         num_cols = region.height / self.segment_height
         for i in range(num_cols):
             regions.append(Region(
                 region.x1, 
-                region.y1 + ((i * self.segment_height)), 
+                region.y1 + (i * self.segment_height), 
                 region.x2, 
                 region.y1 + ((i + 1) * self.segment_height)
             ))
-            #print '    ->:', regions[-1]
         return regions

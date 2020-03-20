@@ -32,6 +32,9 @@ class Node(object):
         if self.generator is None:
             return
 
+        for child in self.children:
+            del child.data[:]
+
         for data in self.data:
             output = self.generator.run(data)
 

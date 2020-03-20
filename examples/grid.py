@@ -2,6 +2,7 @@ import logging
 
 import pyglet
 from pyglet import gl
+from pyglet.window import key
 
 from pglib import pygutils
 from pglib.node import Node
@@ -47,6 +48,12 @@ window = pyglet.window.Window(WIDTH, HEIGHT)
 # gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 pyglet.gl.glBlendFunc(pyglet.gl.GL_SRC_ALPHA, pyglet.gl.GL_ONE_MINUS_SRC_ALPHA)
+
+
+@window.event
+def on_key_press(symbol, modifiers):
+    if symbol == key.F5:
+        root_node.evaluate()
 
 
 @window.event

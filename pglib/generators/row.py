@@ -4,11 +4,11 @@ from box import Box
 
 class Row(Box):
 
-    def __init__(self, width, spacing, **kwargs):
+    def __init__(self, width, **kwargs):
         super(Row, self).__init__(**kwargs)
 
         self.width = width
-        self.spacing = spacing
+        #self.spacing = spacing
 
     def run(self, region):
 
@@ -34,5 +34,5 @@ class Row(Box):
                 region.x1 + start + width,
                 region.y2
             ))
-            spacing = self.spacing.run()
+            #spacing = self.spacing.run()
         return regions

@@ -9,6 +9,7 @@ from pglib.node import Node
 from pglib.region import Region
 from pglib.generators.row import Row as RowGenerator
 from pglib.generators.column import Column as ColumnGenerator
+from pglib.generators.box import Box
 from pglib.generators.randomregions import RandomRegions
 from pglib.generators.image import Image
 from pglib.selectors.all import All
@@ -36,18 +37,26 @@ WINDOW_HEIGHT = HEIGHT * GRID_SPACING
 # Create root node and add some data.
 row_generator = RowGenerator(
     Constant(1),
-    Range(1),
-    padding_x1=Range(3),
-    padding_x2=Range(3),
-    padding_y1=Range(3),
-    padding_y2=Range(3),
+    #Range(1),
+    padding=Constant(1)
 )
 root_node = Node('root', row_generator, All())
-next_node = Node('all', ColumnGenerator(1), ColumnSelector())
+
+next_node = Node('all', Box(
+    padding_y2=Range(5)
+), All())
+
+# # next_node = Node('all', ColumnGenerator(1), ColumnSelector())
 root_node.add_child(next_node)
-next_node.add_child(Node('bottom', Image('pillar_bottom')))
-next_node.add_child(Node('middle', Image('pillar_middle')))
-next_node.add_child(Node('top', Image('pillar_top')))
+
+
+column = Node('all', ColumnGenerator(1), ColumnSelector())
+next_node.add_child(column)
+# column.add_child(Node('bottom', Image('pillar_bottom')))
+# column.add_child(Node('middle', Image('pillar_middle')))
+# column.add_child(Node('top', Image('pillar_top')))
+
+
 
 root_node.data.append(Region(0, 0, WIDTH, HEIGHT))
 root_node.evaluate()

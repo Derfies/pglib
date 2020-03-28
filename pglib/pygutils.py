@@ -23,7 +23,7 @@ def region_to_rect(region, **kwargs):
 
 
 def draw(node, grid_spacing):
-    for region in node.data:
+    for region in node.outputs:
         if hasattr(region, 'sprite'):
             pyglet.gl.glColor4f(1, 1, 1, 1)
             region.sprite_image.texture.width = region.width * grid_spacing

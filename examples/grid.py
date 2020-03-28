@@ -21,9 +21,11 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 
-GRID_SPACING = 10
-WIDTH = 1600
-HEIGHT = 800
+GRID_SPACING = 16
+WIDTH = 20
+HEIGHT = 11
+WINDOW_WIDTH = WIDTH * GRID_SPACING
+WINDOW_HEIGHT = HEIGHT * GRID_SPACING
 
 
 
@@ -32,18 +34,26 @@ HEIGHT = 800
 
 
 # Create root node and add some data.
-root_node = Node('root', RowGenerator(Constant(10), Range(1)), All())
-next_node = Node('all', ColumnGenerator(10), ColumnSelector())
+row_generator = RowGenerator(
+    Constant(1),
+    Range(1),
+    padding_x1=Range(3),
+    padding_x2=Range(3),
+    padding_y1=Range(3),
+    padding_y2=Range(3),
+)
+root_node = Node('root', row_generator, All())
+next_node = Node('all', ColumnGenerator(1), ColumnSelector())
 root_node.add_child(next_node)
 next_node.add_child(Node('bottom', Image('pillar_bottom')))
 next_node.add_child(Node('middle', Image('pillar_middle')))
 next_node.add_child(Node('top', Image('pillar_top')))
 
-root_node.data.append(Region(10, 10, 150, 70))
+root_node.data.append(Region(0, 0, WIDTH, HEIGHT))
 root_node.evaluate()
 
 # Run main loop and draw.
-window = pyglet.window.Window(WIDTH, HEIGHT)
+window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
 # gl.glEnable(gl.GL_TEXTURE_2D)
 # gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
@@ -59,6 +69,6 @@ def on_key_press(symbol, modifiers):
 @window.event
 def on_draw():
     window.clear()
-    pygutils.grid(WIDTH, HEIGHT, GRID_SPACING, (0.25, 0.25, 0.25, 1))
+    pygutils.grid(WINDOW_WIDTH, WINDOW_HEIGHT, GRID_SPACING, (0.25, 0.25, 0.25, 1))
     pygutils.draw(root_node, GRID_SPACING)
 pyglet.app.run()

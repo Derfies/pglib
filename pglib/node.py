@@ -41,6 +41,9 @@ class Node(object):
             # If no selector has been set, wrap the output in a node and call it
             # a day.
             if self.selector is None or not self.children:
+
+                # TODO: Don't do this as the children evaluate later. It's
+                # confusing. Also it changes the tree shape during runtime.
                 self._children.append(Node('unnamed', data=output))
                 continue
 

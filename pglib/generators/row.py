@@ -1,18 +1,24 @@
 from pglib.region import Region
-from base import Base
+from box import Box
 
 
-class Row(Base):
+class Row(Box):
 
-    def __init__(self, width_sampler, spacing_sampler):
-        super(Row, self).__init__()
+    def __init__(self, width, spacing, **kwargs):
+        super(Row, self).__init__(**kwargs)
 
-        self.width_sampler = width_sampler
-        self.spacing_sampler = spacing_sampler
+        self.width = width
+        self.spacing = spacing
 
     def run(self, region):
+
+        # TODO: Want to embed this a little so run automatically gets called
+        # with the padding region.
+        region = self.get_padding_region(region)
+
         regions = []
-        width = self.width_sampler.run()
+
+        width = self.width.run()
         num_rows = region.width / width
         spacing = 0
 
@@ -28,5 +34,5 @@ class Row(Base):
                 region.x1 + start + width,
                 region.y2
             ))
-            spacing = self.spacing_sampler.run()
+            spacing = self.spacing.run()
         return regions

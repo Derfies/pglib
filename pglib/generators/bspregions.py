@@ -1,13 +1,12 @@
 import random
 
-from pglib.region import Region
-from base import Base
+from box import Box
 
 
-class BspRegions(Base):
+class BspRegions(Box):
 
-    def __init__(self, min_size, max_size):
-        super(BspRegions, self).__init__()
+    def __init__(self, min_size, max_size, **kwargs):
+        super(BspRegions, self).__init__(**kwargs)
 
         self.min_size = min_size
         self.max_size = max_size
@@ -16,6 +15,10 @@ class BspRegions(Base):
         """
         Adapted from https://gamedevelopment.tutsplus.com/tutorials/how-to-use-bsp-trees-to-generate-game-maps--gamedev-12268
         """
+
+        # TODO: Want to embed this a little so run automatically gets called
+        # with the padding region.
+        region = self.get_padding_region(region)
 
         leaves = []
 

@@ -24,7 +24,7 @@ class Point2d(object):
 
     @x.setter
     def x(self, value):
-        self[0] += value
+        self[0] = value
 
     @property
     def y(self):
@@ -32,4 +32,4 @@ class Point2d(object):
     
     @y.setter
     def y(self, value):
-        self[1] += value
+        self[1] = value

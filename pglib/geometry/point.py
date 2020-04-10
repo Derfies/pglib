@@ -1,6 +1,3 @@
-#from collections import MutableSequence
-
-
 class Point2d(object):
 
     def __init__(self, x, y):

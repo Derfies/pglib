@@ -1,40 +1,27 @@
-import pyglet
-
-#from pygprim.context import line, rect
 from pglib import utils
-
-#
-# def grid(width, height, spacing, stroke):
-#     pass
-#     # for x in range(0, width, spacing):
-#     #     line(x, 0, x, height, stroke=stroke)
-#     # for y in range(0, height, spacing):
-#     #     line(0, y, width, y, stroke=stroke)
+from pglib.geometry.point import Point2d
+from pglib.draw.pyglet.drawables import Rect, Image
 
 
-def region_to_rect(region, **kwargs):
-    grid_spacing = kwargs.pop('grid_spacing', 1)
-    x = region.x1 * grid_spacing
-    y = region.y1 * grid_spacing
-    w = region.width * grid_spacing
-    h = region.height * grid_spacing
-    rect(x, y, w, h, **kwargs)
-
-
-def draw(node, grid_spacing):
+def get_drawables(node, grid_spacing, ret=None):
+    ret = ret or []
     for region in node.outputs:
-        if hasattr(region, 'sprite'):
-            pyglet.gl.glColor4f(1, 1, 1, 1)
-            region.sprite_image.texture.width = region.width * grid_spacing
-            region.sprite_image.texture.height = region.height * grid_spacing
-            region.sprite_image.blit(region.x1 * grid_spacing, region.y1 * grid_spacing)
+        if hasattr(region, 'image_path'):
+            ret.append(Image(
+                region.image_path,
+                Point2d(region.x1 * grid_spacing, region.y1 * grid_spacing),
+                Point2d(region.x2 * grid_spacing, region.y2 * grid_spacing),
+            ))
         else:
-            region_to_rect(
-                region,
-                grid_spacing=grid_spacing,
-                stroke=utils.get_random_colour(1),
-                strokewidth=4,
-                fill=(0, 0, 0, 0)
-            )
+            ret.append(Rect(
+                Point2d(region.x1 * grid_spacing, region.y1 * grid_spacing),
+                Point2d(region.x2 * grid_spacing, region.y2 * grid_spacing),
+                colour=None,
+                line_colour=utils.get_random_colour(1),
+                line_width=4,
+            ))
+
     for cnode in node.children:
-        draw(cnode, grid_spacing)
+        get_drawables(cnode, grid_spacing, ret)
+
+    return ret

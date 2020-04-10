@@ -9,13 +9,13 @@ from pglib.geometry.rect import Rect as GeoRect
 from pglib.geometry.circle import Circle as GeoCircle
 
 
-class Drawable(object):
+class DrawableBase(object):
 
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, *args, **kwargs):
         self.colour = kwargs.pop('colour', (1, 1, 1, 1))
-        super(Drawable, self).__init__(*args, **kwargs)
+        super(DrawableBase, self).__init__(*args, **kwargs)
         self.update()
 
     @abc.abstractmethod
@@ -23,16 +23,16 @@ class Drawable(object):
         """"""
 
     @abc.abstractmethod
-    def _draw(self):
+    def draw_fill(self):
         """"""
 
     def draw(self):
         if self.colour is not None:
             pyglet.gl.glColor4f(*self.colour)
-            self._draw()
+            self.draw_fill()
 
 
-class Line(Drawable):
+class Line(DrawableBase):
 
     def __init__(self, points, *args, **kwargs):
         self.points = points
@@ -40,27 +40,24 @@ class Line(Drawable):
         super(Line, self).__init__(*args, **kwargs)
 
     def update(self):
-        vertices = []
+        l_data = []
         for i in range(len(self.points) - 1):
-            vertices.extend(self.points[i])
-            vertices.extend(self.points[i + 1])
-        vertices.extend(self.points[-1])
-        vertices.extend(self.points[0])
-        len_vertices = len(vertices) / 2
-        self._verts = pyglet.graphics.vertex_list(len_vertices, 'v2f')
-        self._verts.vertices = vertices
+            l_data.extend(self.points[i])
+            l_data.extend(self.points[i + 1])
+        self._verts = pyglet.graphics.vertex_list(len(l_data) / 2, 'v2f')
+        self._verts.vertices = l_data
 
-    def _draw(self):
+    def draw_fill(self):
         pyglet.gl.glLineWidth(self.width)
         self._verts.draw(pyglet.gl.GL_LINES)
 
 
-class PolygonBase(Drawable):
+class OutlinedBase(DrawableBase):
 
     def __init__(self, *args, **kwargs):
         self.line_colour = kwargs.pop('line_colour', None)
         self.line_width = kwargs.pop('line_width', 1)
-        super(PolygonBase, self).__init__(*args, **kwargs)
+        super(OutlinedBase, self).__init__(*args, **kwargs)
 
     @abc.abstractproperty
     def points(self):
@@ -74,23 +71,29 @@ class PolygonBase(Drawable):
             v_data = tuple([el for point in tri for el in point])
             self._tris.add(3, pyglet.gl.GL_TRIANGLES, None, ('v2f', v_data))
 
+        # Use a line object for the outline.
+        line_points = list(self.points[:])
+        line_points.append(self.points[0])
         self._line = Line(
-            self.points,
+            line_points,
             colour=self.line_colour,
             width=self.line_width
         )
 
-    def _draw(self):
+    def draw_fill(self):
         self._tris.draw()
 
+    def draw_lines(self):
+        self._line.draw()
+
     def draw(self):
-        super(PolygonBase, self).draw()
+        super(OutlinedBase, self).draw()
 
         if self.line_colour is not None and self.line_width > 0:
-            self._line.draw()
+            self.draw_lines()
 
 
-class Polygon(PolygonBase):
+class Polygon(OutlinedBase):
 
     def __init__(self, points, *args, **kwargs):
         self._points = points
@@ -101,7 +104,7 @@ class Polygon(PolygonBase):
         return self._points
 
 
-class Rect(PolygonBase, GeoRect):
+class Rect(OutlinedBase, GeoRect):
 
     @property
     def points(self):
@@ -113,7 +116,7 @@ class Rect(PolygonBase, GeoRect):
         )
 
 
-class Circle(PolygonBase, GeoCircle):
+class Circle(OutlinedBase, GeoCircle):
 
     def __init__(self, num_points, *args, **kwargs):
         self.num_points = num_points
@@ -142,8 +145,7 @@ class Image(Rect):
         self._image.texture.width = self.width
         self._image.texture.height = self.height
 
-    def _draw(self):
-        super(Image, self)._draw()
+    def draw_fill(self):
         self._image.blit(*self.p1)
 
 
@@ -164,7 +166,7 @@ class Grid(Rect):
             line = Line((Point2d(self.p1.x, y), Point2d(self.p2.x, y)), **kwargs)
             self._lines.append(line)
 
-    def draw(self):
-        super(Grid, self).draw()
+    def draw_lines(self):
+        super(Grid, self).draw_lines()
         for line in self._lines:
             line.draw()

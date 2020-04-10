@@ -27,15 +27,3 @@ def get_weighted_choice(choices):
     x = random.random() * total
     i = bisect.bisect(cum_weights, x)
     return values[i]
-
-
-def get_random_element(list_):
-    idx = random.randint(0, len(list_) - 1)
-    return list_[idx]
-
-
-def get_random_bool():
-    if random.randint(0, 1):
-        return True
-    else:
-        return False

@@ -12,6 +12,22 @@ def get_drawables(node, grid_spacing, ret=None):
                 Point2d(region.x1 * grid_spacing, region.y1 * grid_spacing),
                 Point2d(region.x2 * grid_spacing, region.y2 * grid_spacing),
             ))
+        elif hasattr(region, 'matrix'):
+            a = region.matrix
+            rows = a.shape[0]
+            cols = a.shape[1]
+            offset = Point2d(region.x1 * grid_spacing, region.y1 * grid_spacing)
+            for x in xrange(rows):
+                for y in xrange(cols):
+                    if not a[x][y]:
+                        continue
+                    ret.append(Rect(
+                        Point2d(x * grid_spacing, y * grid_spacing) + offset,
+                        Point2d((x + 1) * grid_spacing, (y + 1) * grid_spacing) + offset,
+                        colour=(1, 0, 0, 1),
+                        #line_colour=utils.get_random_colour(1),
+                        #line_width=4,
+                    ))
         else:
             ret.append(Rect(
                 Point2d(region.x1 * grid_spacing, region.y1 * grid_spacing),

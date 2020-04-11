@@ -11,13 +11,16 @@ TILE_CRATE = 1
 
 class RecursiveMaze(Box):
 
+    """
+    Taken from: https://arcade.academy/examples/maze_recursive.html
+    """
+
     def create_empty_grid(self, width, height, default_value=TILE_EMPTY):
         """ Create an empty grid. """
-        return np.full((width, height), TILE_EMPTY)
+        return np.full((width, height), default_value)
 
     def create_outside_walls(self, maze):
         """ Create outside border walls."""
-
         # Create left and right walls
         for row in range(len(maze)):
             maze[row][0] = TILE_CRATE
@@ -36,7 +39,6 @@ class RecursiveMaze(Box):
         Gaps can only go on odd numbered rows/columns.
         Maze must have an ODD number of rows and columns.
         """
-
         # Figure out where to divide horizontally
         start_range = bottom + 2
         end_range = top - 1
@@ -98,10 +100,6 @@ class RecursiveMaze(Box):
         return maze
 
     def run(self, region):
-
-        """
-        Taken from: https://arcade.academy/examples/maze_recursive.html
-        """
 
         # TODO: Want to embed this a little so run automatically gets called
         # with the padding region.

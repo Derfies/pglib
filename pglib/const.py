@@ -1,3 +1,6 @@
+import enum
+
+
 class POS_Y(object):
     numpy_rot = 0
     sign = 1
@@ -31,3 +34,25 @@ DIRECTIONS = [
     NEG_Y,
     NEG_X,
 ]
+
+
+class Direction(enum.IntEnum):
+
+    POS_X = 0
+    POS_Y = 1
+    NEG_X = 2
+    NEG_Y = 3
+
+    @staticmethod
+    def normalise(direction):
+        return Direction(direction % 4)
+
+    @staticmethod
+    def opposite(direction):
+        return Direction.normalise(direction - 2)
+
+
+class Axis(enum.IntEnum):
+
+    X = 0
+    Y = 1

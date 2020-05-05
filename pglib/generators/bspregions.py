@@ -1,10 +1,10 @@
 import random
 
-from box import Box
 from pglib.region import Region
+from .regionbase import RegionBase
 
 
-class BspRegions(Box):
+class BspRegions(RegionBase):
 
     """
     Taken from: https://arcade.academy/examples/procedural_caves_bsp.html
@@ -46,9 +46,9 @@ class BspRegions(Box):
         self.random_split(min_row, min_col, max_row, split)
         self.random_split(min_row, split, max_row, max_col)
 
-    def run(self, region):
+    def _run(self, region):
         self.leaves = []
         #self.max = 10
-        region = self.get_padding_region(region)
+        #region = self.get_padding_region(region)
         self.random_split(region.x1, region.y1, region.x2, region.y2)
         return self.leaves

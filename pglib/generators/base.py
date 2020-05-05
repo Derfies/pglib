@@ -1,10 +1,7 @@
-import abc
-
-
 class Base(object):
 
-    __metaclass__ = abc.ABCMeta
+    def _run(self, data):
+        return [data]
 
-    @abc.abstractmethod
-    def run(self):
-        """"""
+    def run(self, input_):
+        return self._run(input_.data)

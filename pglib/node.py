@@ -1,71 +1,84 @@
 import logging
 
+from nodebase import NodeBase
+from datanode import DataNode
+from selectors.base import Base as SelectorBase
+
 
 logger = logging.getLogger(__name__)
 
 
-class Node(object):
+class Node(NodeBase):
 
-    def __init__(self, name, generator, selector=None, recurse_while_fn=None):
+    def __init__(self, name, generator, selector=None, recurse_while_fn=None,
+                 children=None):
+        super(Node, self).__init__(children)
+
         self.name = name
         self.generator = generator
         self.selector = selector
+        if self.selector is None:
+            self.selector = SelectorBase()
         self.recurse_while_fn = recurse_while_fn
 
         self.inputs = []
-        self.outputs = []
-        self._children = []
-
-    @property
-    def children(self):
-        return tuple(self._children[:])
-
-    def add_child(self, child):
-        self._children.append(child)
+        self.rec_children = []
 
     def clear(self):
-        del self.outputs[:]
-        for child in self.children:
-            del child.inputs[:]
-            child.clear()
+        for input_ in self.inputs:
+            input_.children = []
 
-    def _evaluate(self, i, inputs):
+    def add_input(self, input_):
+        self.inputs.append(DataNode(input_))
 
-        # TODO: Needs another class?
-        for input_ in inputs:
+    def add_child(self, node, selector=None):
+        self.children.append(node)
+        self.selector.connect(node, selector)
 
-            # Run this generator and add result to outputs.
-            outputs = self.generator.run(input_)
-            self.outputs.extend(outputs)
+    def evaluate(self, depth=0):
 
-            # Run the selector over each set of outputs and set them as the
-            # input to each child.
-            for child in self.children:
-                subset = outputs
-                if self.selector is not None:
-                    subset = self.selector.select(child.name, outputs)
-                child.inputs.extend(subset)
-
-            # If a recursion terminator function is defined use it to filter the
-            # outputs in order to recurse. Those outputs that cannot be recursed
-            # are leaves.
-            if self.recurse_while_fn is not None:
-                can_recurse = []
-                cant_recurse = []
-                for output in outputs:
-                    if self.recurse_while_fn(i, output):
-                        can_recurse.append(output)
-                    else:
-                        cant_recurse.append(output)
-                self._evaluate(i + 1, can_recurse)
-
-    def evaluate(self):
-        #logger.info('Evaluating: {} size: {}'.format(self.name, len(self.outputs)))
+        # Nuke.
+        logger.info('Evaluating: {}'.format(self.name))
         self.clear()
         if self.generator is None:
+            logger.info('   Node has no generator')
             return
 
-        self._evaluate(0, self.inputs)
+        # Run the generator over this node's input.
+        logger.info('   Using {} inputs'.format(len(self.inputs)))
+        for input_ in self.inputs:
+            input_.children = map(DataNode, self.generator.run(input_))
+        logger.info('   Created {} outputs'.format(sum([len(i.children) for i in self.inputs])))
+
+        if self.recurse_while_fn is not None:
+
+            # Iterate over outputs and see if the value can be recursed.
+            rec_inputs = []
+            for input_ in self.inputs:
+                input_children = filter(lambda x: self.recurse_while_fn(depth, x), input_.children)
+                rec_inputs.extend(input_children)
+
+            # Recurse any children if they are eligible.
+            if rec_inputs:
+                logger.info('   Recursing depth {}'.format(depth))
+                rec_node = Node(self.name + '_' + str(depth), self.generator, recurse_while_fn=self.recurse_while_fn)
+                self.rec_children.append(rec_node)
+                rec_node.inputs = rec_inputs
+                rec_node.evaluate(depth + 1)
+            else:
+                logger.info('   Recursion complete')
+
+        # Run the selector over each set of outputs and set them as the
+        # input to each child.
+        # TODO: Need to select recursion result and pass to children somehow.
+
+        for child in self.children:
+            child.inputs = []
+
+        for input_ in self.inputs:
+            self.selector.input = input_
+            for child in self.children:
+                child.inputs.extend(self.selector.run(child))
 
         for child in self.children:
             child.evaluate()

@@ -28,6 +28,7 @@ class AppBase(pyglet.window.Window):
 
     def refresh(self):
         self.root_node.evaluate()
+        print ''
         self.drawables = utils.get_drawables(
             self.root_node,
             self.grid_spacing

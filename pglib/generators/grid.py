@@ -1,8 +1,8 @@
 from pglib.region import Region
-from box import Box
+from regionbase import RegionBase
 
 
-class Grid(Box):
+class Grid(RegionBase):
 
     def __init__(self, num_rows, num_cols, **kwargs):
         super(Grid, self).__init__(**kwargs)
@@ -10,12 +10,7 @@ class Grid(Box):
         self.num_rows = num_rows
         self.num_cols = num_cols
 
-    def run(self, region):
-
-        # TODO: Want to embed this a little so run automatically gets called
-        # with the padding region.
-        region = self.get_padding_region(region)
-
+    def _run(self, region):
         regions = []
 
         num_cols = self.num_cols.run()

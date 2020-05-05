@@ -3,7 +3,7 @@ import random
 from base import Base
 
 
-class RandomChoice(Base):
+class Choice(Base):
 
     def __init__(self, items):
         self.items = items

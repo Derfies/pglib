@@ -2,14 +2,14 @@ import random
 
 import numpy as np
 
-from box import Box
+from regionbase import RegionBase
 
 
 TILE_EMPTY = 0
 TILE_CRATE = 1
 
 
-class RecursiveMaze(Box):
+class RecursiveMaze(RegionBase):
 
     """
     Taken from: https://arcade.academy/examples/maze_recursive.html
@@ -99,11 +99,11 @@ class RecursiveMaze(Box):
         self.make_maze_recursive_call(maze, maze_height - 1, 0, 0, maze_width - 1)
         return maze
 
-    def run(self, region):
+    def _run(self, region):
 
         # TODO: Want to embed this a little so run automatically gets called
         # with the padding region.
-        region = self.get_padding_region(region)
+        #region = self.get_padding_region(region)
 
         region.matrix = self.make_maze_recursion(region.width, region.height)
 

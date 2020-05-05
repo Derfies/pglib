@@ -1,22 +1,18 @@
 import random
 
-from box import Box
 from pglib.const import Axis
 from pglib.region import Region
+from .regionbase import RegionBase
 
 
-class Bsp(Box):
+class Bsp(RegionBase):
 
     def __init__(self, split_dir, **kwargs):
         super(Bsp, self).__init__(**kwargs)
 
         self.split_dir = split_dir
 
-    def run(self, region):
-
-        # TODO: Want to embed this a little so run automatically gets called
-        # with the padding region.
-        region = self.get_padding_region(region)
+    def _run(self, region):
 
         # TODO: Randomize split amount
         # TODO: Set limits. This is done with the node recursion so far.

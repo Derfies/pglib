@@ -1,14 +1,9 @@
 import logging
 
 from pglib.draw.pyglet.appbase import AppBase
+from pglib.generators.recursivemaze import RecursiveMaze
 from pglib.node import Node
 from pglib.region import Region
-from pglib.samplers.range import Range
-from pglib.generators.randomregions import RandomRegions
-from pglib.generators.recursivemaze import RecursiveMaze
-from pglib.generators.bspregions import BspRegions
-from pglib.samplers.constant import Constant
-from pglib.selectors.all import All
 
 
 logger = logging.getLogger(__name__)
@@ -23,13 +18,11 @@ WINDOW_HEIGHT = HEIGHT * GRID_SPACING
 
 
 # Create tree.
-root_node = Node('root', RecursiveMaze())#RandomRegions(Range(10, 20), Range(10, 20), 200), All())
-#next_node = Node('all', RecursiveMaze(padding=Constant(1)))
-#root_node.add_child(next_node)
+# TODO: Can this generator be implemented using the node's recursive function?
+root_node = Node('root', RecursiveMaze())
 
-# Add some data and evaluate the root node.
-root_node.inputs.append(Region(0, 0, WIDTH, HEIGHT))
-root_node.evaluate()
+# Add some input data.
+root_node.add_input(Region(0, 0, WIDTH, HEIGHT))
 
 # Create test app and run.
 app = AppBase(root_node, GRID_SPACING, WINDOW_WIDTH, WINDOW_HEIGHT)

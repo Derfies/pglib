@@ -1,38 +1,23 @@
 from pglib.region import Region
-from box import Box
+from regionbase import RegionBase
 
 
-class Row(Box):
+class Row(RegionBase):
 
-    def __init__(self, width, **kwargs):
+    def __init__(self, height, **kwargs):
         super(Row, self).__init__(**kwargs)
 
-        self.width = width
-        #self.spacing = spacing
+        self.height = height
 
-    def run(self, region):
-
-        # TODO: Want to embed this a little so run automatically gets called
-        # with the padding region.
-        region = self.get_padding_region(region)
-
+    def _run(self, region):
         regions = []
-
-        width = self.width.run()
-        num_rows = region.width / width
-        spacing = 0
-
-        # TODO: Spacing may push next element outside of bounds.
-        # TODO: Expose this feature?
-        for i in range(num_rows):
-
-            # BUG - Set start to end of last region to stop overlapping.
-            start = i * (width + spacing)
+        height = self.height.run()
+        num_cols = region.height / height
+        for i in range(num_cols):
             regions.append(Region(
-                region.x1 + start,
-                region.y1,
-                region.x1 + start + width,
-                region.y2
+                region.x1, 
+                region.y1 + (i * height),
+                region.x2, 
+                region.y1 + ((i + 1) * height)
             ))
-            #spacing = self.spacing.run()
         return regions

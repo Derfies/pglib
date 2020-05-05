@@ -1,16 +1,15 @@
 import logging
 
 from pglib.draw.pyglet.appbase import AppBase
+from pglib.generators.column import Column
+from pglib.generators.image import Image
+from pglib.generators.regionbase import RegionBase
+from pglib.generators.row import Row
 from pglib.node import Node
 from pglib.region import Region
-from pglib.generators.row import Row as RowGenerator
-from pglib.generators.column import Column as ColumnGenerator
-from pglib.generators.box import Box
-from pglib.generators.image import Image
-from pglib.selectors.all import All
-from pglib.selectors.column import Column as ColumnSelector
 from pglib.samplers.constant import Constant
 from pglib.samplers.range import Range
+from pglib.selectors.sequence import Sequence
 
 
 logger = logging.getLogger(__name__)
@@ -18,32 +17,29 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 GRID_SPACING = 16
-WIDTH = 20
+WIDTH = 11
 HEIGHT = 11
 WINDOW_WIDTH = WIDTH * GRID_SPACING
 WINDOW_HEIGHT = HEIGHT * GRID_SPACING
 
+
 # Create tree.
-root_node = Node('root', RowGenerator(
-    Constant(1),
-    padding=Constant(1)
-), All())
+root = Node('root', Column(Constant(1), padding=Constant(1)))
+column = Node('column', RegionBase(padding_y2=Range(7)))
+sections = Node('sections', Row(Constant(1)), Sequence())
+bot = Node('bot', Image('pillar_bottom'))
+mid = Node('mid', Image('pillar_middle'))
+top = Node('top', Image('pillar_top'))
 
-next_node = Node('all', Box(
-    padding_y2=Range(7)
-), All())
-root_node.add_child(next_node)
+root.add_child(column)
+column.add_child(sections)
+sections.add_child(bot, sections.selector.first)
+sections.add_child(mid, sections.selector.middle)
+sections.add_child(top, sections.selector.last)
 
-column = Node('all', ColumnGenerator(1), ColumnSelector())
-next_node.add_child(column)
-column.add_child(Node('bottom', Image('pillar_bottom')))
-column.add_child(Node('middle', Image('pillar_middle')))
-column.add_child(Node('top', Image('pillar_top')))
-
-# Add some data and evaluate the root node.
-root_node.inputs.append(Region(0, 0, WIDTH, HEIGHT))
-root_node.evaluate()
+# Add some input data.
+root.add_input(Region(0, 0, WIDTH, HEIGHT))
 
 # Create test app and run.
-app = AppBase(root_node, GRID_SPACING, WINDOW_WIDTH, WINDOW_HEIGHT)
+app = AppBase(root, GRID_SPACING, WINDOW_WIDTH, WINDOW_HEIGHT)
 app.run()

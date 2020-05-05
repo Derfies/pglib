@@ -1,22 +1,23 @@
 from pglib.region import Region
-from base import Base
+from regionbase import RegionBase
 
 
-class Column(Base):
+class Column(RegionBase):
 
-    def __init__(self, segment_height):
-        super(Column, self).__init__()
+    def __init__(self, width, **kwargs):
+        super(Column, self).__init__(**kwargs)
 
-        self.segment_height = segment_height
+        self.width = width
 
-    def run(self, region):
+    def _run(self, region):
         regions = []
-        num_cols = region.height / self.segment_height
-        for i in range(num_cols):
+        width = self.width.run()
+        num_rows = region.width / width
+        for i in range(num_rows):
             regions.append(Region(
-                region.x1, 
-                region.y1 + (i * self.segment_height), 
-                region.x2, 
-                region.y1 + ((i + 1) * self.segment_height)
+                region.x1 + (i * width),
+                region.y1,
+                region.x1 + ((i + 1) * width),
+                region.y2
             ))
         return regions

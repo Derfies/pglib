@@ -1,45 +1,54 @@
 import random
 
-from box import Box
+from pglib.region import Region
+from .regionbase import RegionBase
 
 
-class BspRegions(Box):
+class BspRegions(RegionBase):
 
-    def __init__(self, min_size, max_size, **kwargs):
+    """
+    Taken from: https://arcade.academy/examples/procedural_caves_bsp.html
+    """
+
+    def __init__(self, max_, **kwargs):
         super(BspRegions, self).__init__(**kwargs)
 
-        self.min_size = min_size
-        self.max_size = max_size
+        self.max = max_
+        #self.max_size = max_size
 
-    def run(self, region):
-        """
-        Adapted from https://gamedevelopment.tutsplus.com/tutorials/how-to-use-bsp-trees-to-generate-game-maps--gamedev-12268
-        """
+    def random_split(self, min_row, min_col, max_row, max_col):
 
-        # TODO: Want to embed this a little so run automatically gets called
-        # with the padding region.
-        region = self.get_padding_region(region)
+        # We want to keep splitting until the sections get down to the threshold
+        seg_height = max_row - min_row
+        seg_width = max_col - min_col
 
-        leaves = []
+        max_ = self.max.run()
 
-        # First, create a leaf to be the 'root' of all leaves.
-        leaves.append(region)
+        if seg_height < max_ and seg_width < max_:
+            self.leaves.append(Region(min_row, min_col, max_row, max_col))
+        elif seg_height < max_ <= seg_width:
+            self.split_on_vertical(min_row, min_col, max_row, max_col)
+        elif seg_height >= max_ > seg_width:
+            self.split_on_horizontal(min_row, min_col, max_row, max_col)
+        else:
+            if random.random() < 0.5:
+                self.split_on_horizontal(min_row, min_col, max_row, max_col)
+            else:
+                self.split_on_vertical(min_row, min_col, max_row, max_col)
 
-        # We loop through every leaf in our cector over and over again, until no more leaves can be split.
-        did_split = True
-        while did_split:
-            did_split = False
-            for l in leaves:
-                if l.left_child is None and l.right_child is None: # if this Leaf is not already split...
-                
-                    # If this Leaf is too big, or 75% chance...
-                    if l.width > self.max_size or l.height > self.max_size or random.uniform(0, 1) > 0.25:
-                    
-                        if l.split(self.min_size): # split the Leaf!
-                        
-                            # If we did split, push the child leafs to the Vector so we can loop into them next
-                            leaves.append(l.left_child)
-                            leaves.append(l.right_child)
-                            did_split = True
+    def split_on_horizontal(self, min_row, min_col, max_row, max_col):
+        split = (min_row + max_row) // 2 + random.choice((-2, -1, 0, 1, 2))
+        self.random_split(min_row, min_col, split, max_col)
+        self.random_split(split, min_col, max_row, max_col)
 
-        return leaves
+    def split_on_vertical(self, min_row, min_col, max_row, max_col):
+        split = (min_col + max_col) // 2 + random.choice((-2, -1, 0, 1, 2))
+        self.random_split(min_row, min_col, max_row, split)
+        self.random_split(min_row, split, max_row, max_col)
+
+    def _run(self, region):
+        self.leaves = []
+        #self.max = 10
+        #region = self.get_padding_region(region)
+        self.random_split(region.x1, region.y1, region.x2, region.y2)
+        return self.leaves

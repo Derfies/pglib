@@ -2,20 +2,22 @@ import random
 
 from pglib import utils
 from pglib.region import Region
-from base import Base
+from regionbase import RegionBase
 
 
-class RandomRegions(Base):
+class RandomRegions(RegionBase):
 
     def __init__(self, width_sampler, height_sampler, max_iters, intersect=False,
-                 center_weight=None):
+                 center_weight=None, **kwargs):
         self.width_sampler = width_sampler
         self.height_sampler = height_sampler
         self.max_iters = max_iters
         self.intersect = intersect
         self.center_weight = center_weight
 
-    def run(self, p_region):
+        super(RandomRegions, self).__init__(**kwargs)
+
+    def _run(self, p_region):
         regions = []
         for i in xrange(self.max_iters):
 

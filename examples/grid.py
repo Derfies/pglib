@@ -1,9 +1,11 @@
 import logging
 
 from pglib.draw.pyglet.appbase import AppBase
-from pglib.generators.bspregions import BspRegions
+from pglib.generators.grid import Grid
+from pglib.generators.image import Image
 from pglib.node import Node
 from pglib.region import Region
+from pglib.samplers.constant import Constant
 from pglib.samplers.range import Range
 
 
@@ -11,18 +13,16 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 
-MIN_LEAF_SIZE = 6
-MAX_LEAF_SIZE = 20
-GRID_SPACING = 10
-WIDTH = 64
-HEIGHT = 48
+GRID_SPACING = 16
+WIDTH = 30
+HEIGHT = 30
 WINDOW_WIDTH = WIDTH * GRID_SPACING
 WINDOW_HEIGHT = HEIGHT * GRID_SPACING
 
 
-# TODO: Port remaining bspregion stuff to bsp
 # Create tree.
-root = Node('root', BspRegions(Range(MIN_LEAF_SIZE, MAX_LEAF_SIZE), padding=Range(5)))
+root = Node('root', Grid(Range(1, 3), Range(1, 3), padding=Constant(1)))
+root.add_child(Node('all', Image('pillar_bottom')))
 
 # Add some input data.
 root.add_input(Region(0, 0, WIDTH, HEIGHT))

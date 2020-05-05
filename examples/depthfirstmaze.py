@@ -1,14 +1,12 @@
 import logging
 
 from pglib.draw.pyglet.appbase import AppBase
+from pglib.generators.depthfirstmaze import DepthFirstMaze
+from pglib.generators.randomregions import RandomRegions
 from pglib.node import Node
 from pglib.region import Region
-from pglib.samplers.range import Range
-from pglib.generators.randomregions import RandomRegions
-from pglib.generators.depthfirstmaze import DepthFirstMaze
-from pglib.generators.bspregions import BspRegions
 from pglib.samplers.constant import Constant
-from pglib.selectors.all import All
+from pglib.samplers.range import Range
 
 
 logger = logging.getLogger(__name__)
@@ -23,14 +21,12 @@ WINDOW_HEIGHT = HEIGHT * GRID_SPACING
 
 
 # Create tree.
-root_node = Node('root', RandomRegions(Range(10, 20), Range(10, 20), 200), All())
-next_node = Node('all', DepthFirstMaze(padding=Constant(1)))
-root_node.add_child(next_node)
+root = Node('root', RandomRegions(Range(10, 20), Range(10, 20), 200))
+root.add_child(Node('maze', DepthFirstMaze(padding=Constant(1))))
 
-# Add some data and evaluate the root node.
-root_node.inputs.append(Region(0, 0, WIDTH, HEIGHT))
-root_node.evaluate()
+# Add some input data.
+root.add_input(Region(0, 0, WIDTH, HEIGHT))
 
 # Create test app and run.
-app = AppBase(root_node, GRID_SPACING, WINDOW_WIDTH, WINDOW_HEIGHT)
+app = AppBase(root, GRID_SPACING, WINDOW_WIDTH, WINDOW_HEIGHT)
 app.run()

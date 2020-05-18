@@ -11,6 +11,6 @@ class Range(Base):
             args.insert(0, 0)
         self.min = args[0]
         self.max = args[1]
-    
-    def run(self):
+
+    def next(self):
         return random.randint(self.min, self.max)

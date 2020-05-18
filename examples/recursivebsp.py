@@ -8,6 +8,7 @@ from pglib.node import Node
 from pglib.region import Region
 from pglib.samplers.choice import Choice
 from pglib.samplers.constant import Constant
+from pglib.selectors.base import SelectionMode
 
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,13 @@ WINDOW_WIDTH = WIDTH * GRID_SPACING
 WINDOW_HEIGHT = HEIGHT * GRID_SPACING
 
 # Create tree.
-root = Node('root', Bsp(Choice([Axis.X, Axis.Y])), recurse_while_fn=lambda i, r: r.data.width > 5 and r.data.height > 5 and i < 2)
-root.children.append(Node('next', Image('pillar_bottom', padding=Constant(1))))
+root = Node(
+    'root',
+    Bsp(Choice([Axis.X, Axis.Y])),
+    recurse_while_fn=lambda i, r: r.data.width > 5 and r.data.height > 5 and i < 1
+)
+root.selector.mode = SelectionMode.DESCENDENTS
+root.children.append(Node('next', Image('cross', padding=Constant(1))))
 
 # Add some input data.
 root.add_input(Region(0, 0, WIDTH, HEIGHT))

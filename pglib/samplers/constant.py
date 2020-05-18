@@ -5,6 +5,6 @@ class Constant(Base):
 
     def __init__(self, value):
         self.value = value
-    
-    def run(self):
+
+    def next(self):
         return self.value

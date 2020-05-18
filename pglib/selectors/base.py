@@ -1,23 +1,32 @@
-import inspect
-from operator import itemgetter 
+import enum
+
+
+class SelectionMode(enum.Enum):
+
+    LEAVES = 0
+    DESCENDENTS = 1
+    SUBTREE = 2
 
 
 class Base(object):
 
-    def __init__(self):
+    def __init__(self, mode=SelectionMode.LEAVES):
         self._map = {}
         self.input = None
+        self.mode = mode
 
     def connect(self, node, selector):
         self._map[node] = selector
 
-    #def set_input(self, input_):
-    #    self.input = input_
-
     def run(self, node):
 
-        # Test - return leaf nodes only.
-        selection = self.input.leaves
+        if self.mode == SelectionMode.LEAVES:
+            selection = self.input.leaves
+        elif self.mode == SelectionMode.DESCENDENTS:
+            selection = self.input.descendents
+        else:
+            selection = self.input.subtree
+
         selector = self._map.get(node)
         if selector is None:
             return selection

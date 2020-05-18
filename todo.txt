@@ -1,0 +1,3 @@
+- Fix recursive bsp to give more pleasing leaf ratio
+- Get row / column / grid a base class
+- Start rolling in orthogonal polygon

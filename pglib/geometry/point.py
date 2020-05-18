@@ -15,6 +15,12 @@ class Point2d(object):
             self._data[1] + other._data[1]
         )
 
+    def __mul__(self, other):
+        return self.__class__(
+            self._data[0] * other,
+            self._data[1] * other,
+        )
+
     @property
     def x(self):
         return self[0]

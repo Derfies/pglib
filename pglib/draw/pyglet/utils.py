@@ -31,9 +31,9 @@ def get_drawables(node, grid_spacing):
                 region.image_path,
                 Point2d(region.x1 * grid_spacing, region.y1 * grid_spacing),
                 Point2d(region.x2 * grid_spacing, region.y2 * grid_spacing),
-                colour=(1, 1, 1, 0.5),
+                colour=(1, 1, 1, 0.25),
             ))
-        elif hasattr(region, 'matrix'):
+        if hasattr(region, 'matrix'):
             a = region.matrix
             rows = a.shape[0]
             cols = a.shape[1]
@@ -50,13 +50,13 @@ def get_drawables(node, grid_spacing):
                         # line_colour=utils.get_random_colour(1),
                         # line_width=4,
                     ))
-        else:
-            regions.append(Rect(
-                Point2d(region.x1 * grid_spacing, region.y1 * grid_spacing),
-                Point2d(region.x2 * grid_spacing, region.y2 * grid_spacing),
-                colour=None,
-                line_colour=utils.get_random_colour(1),
-                line_width=4,
-            ))
+        #else:
+        regions.append(Rect(
+            Point2d(region.x1 * grid_spacing, region.y1 * grid_spacing),
+            Point2d(region.x2 * grid_spacing, region.y2 * grid_spacing),
+            colour=None,
+            line_colour=utils.get_random_colour(1),
+            line_width=4,
+        ))
 
     return regions

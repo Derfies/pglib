@@ -41,6 +41,9 @@ class Matrix(object):
         m.scale(s)
         return m
 
+    def __str__(self):
+        return str(self.array)
+
     def translate(self, t):
         ta = translation_matrix((t[0], t[1], t[2]))
         self.array = concatenate_matrices(self.array, ta)
@@ -145,6 +148,10 @@ class GeneratorBase(object):
         for tag in tags:
             self.selectors.setdefault(tag, []).append(volume)
 
+    def add_selectors(self, volumes, *tags):
+        for volume in volumes:
+            self.add_selector(volume, *tags)
+
     def select(self, *tags):
         volumes = []
         for tag in tags:
@@ -165,13 +172,19 @@ class DivideBase(GeneratorBase):
 
     def run(self):
         size = self.volume.dimensions[self.index] / float(self.num_sections)
+        sections = []
         for i in range(self.num_sections):
             v = Volume.from_volume(self.volume)
             v.dimensions[self.index] = size
             translate = np.zeros(3)
             translate[self.index] = 1
             v.matrix.translate(translate * size * i)
-            self.add_selector(v, 'all')
+            sections.append(v)
+
+        for section in sections:
+            self.add_selector(section, 'all')
+        self.add_selector(sections[0], 'first')
+        self.add_selector(sections[-1], 'last')
         
         
 class DivideX(DivideBase):
@@ -252,6 +265,61 @@ class Columns(GeneratorBase):
         #         div_z = DivideZ(2, row)
         #         for section in div_z.selectors['all']:
         #             self.add_selector(section, 'all')
+
+
+class Cantor(GeneratorBase):
+
+    def run(self):
+
+        # Base.
+        v = Volume.from_volume(self.volume)
+        height = random.randint(1, 10)
+        v.z = height
+        self.add_selector(v, 'all')
+
+        div_x = DivideX(3, v)
+        for div in div_x.select('first', 'last'):
+            div_y = DivideY(3, div)
+            first, last = div_y.select('first', 'last')
+
+            first.matrix.translate_z(height)
+            if first.x > 1:
+                c = Cantor(first)
+                self.add_selectors(c.select('all'), 'all')
+
+            last.matrix.translate_z(height)
+            if last.x > 1:
+                c = Cantor(last)
+                self.add_selectors(c.select('all'), 'all')
+
+
+class Branch(GeneratorBase):
+
+    def run(self):
+
+        # Base.
+        v = Volume.from_volume(self.volume)
+        v.x *= 0.8
+        v.y *= 0.8
+        v.z *= 0.88
+
+        center = Matrix.translation_matrix((
+            (self.volume.x - v.x) / 2.0,
+            (self.volume.y - v.y) / 2.0,
+            0
+        ))
+        v.matrix = center * v.matrix
+        self.add_selector(v, 'all')
+
+
+        if self.volume.dimensions[0] > 1:
+            for i in range(2):
+                b1 = Volume.from_volume(v)
+                top = Matrix.translation_matrix((0, 0, v.dimensions[2]))
+                rot_x = Matrix.rotation_matrix(15 if i == 0 else -15, (1, 0, 0))
+                b1.matrix = b1.matrix * top * rot_x
+                c = Branch(b1)
+                self.add_selectors(c.select('all'), 'all')
 
 
 if __name__ == '__main__':

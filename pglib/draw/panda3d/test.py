@@ -7,7 +7,7 @@ from direct.directtools.DirectGrid import DirectGrid
 
 import p3d
 from p3d import geometry
-from pglib.test import Volume, Columns, Box, DivideX, DivideY, DivideZ# as BoxGen
+from pglib.test import Volume, Columns, Box, DivideX, DivideY, DivideZ, Cantor, Branch
 
 
 GRID_SIZE = 50
@@ -30,20 +30,28 @@ class MyApp(ShowBase):
         v.matrix.scale_x(1.5)
         self.create_box(v)
 
-        #return
-
-        #print v
         b = Box(v)
         for s in b.select('sides'):
+            d = DivideX(3, s)
+            for c in d.select('all'):
+                self.create_box(c)
+
+        for s in b.select('top'):
             d = DivideZ(3, s)
             for c in d.select('all'):
                 self.create_box(c)
 
-        # for s in b.select('top'):
-        #     d = DivideY(3, s)
-        #     for c in d.select('all'):
-        #         self.create_box(c)
+        # v = Volume(100, 100, 100)
+        # c = Cantor(v)
+        # for b in c.select('all'):
+        #     self.create_box(b)
 
+
+        #
+        # v = Volume(5, 5, 50)
+        # c = Branch(v)
+        # for b in c.select('all'):
+        #     self.create_box(b)
 
 
 
@@ -60,6 +68,8 @@ class MyApp(ShowBase):
         m = pm.LMatrix4f(*v.matrix.array.flatten())
         m.transposeInPlace()
         box.setMat(m)
+
+        #return
 
         s = loader.loadModel('smiley')
         s.reparentTo(self.render)

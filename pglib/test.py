@@ -1,64 +1,135 @@
 import abc
+import math
+import copy
 import random
 import numpy as np
 
 from transformations import (
     identity_matrix,
+    inverse_matrix,
+    compose_matrix,
+    decompose_matrix,
+    concatenate_matrices,
     translation_matrix,
     rotation_matrix,
     scale_matrix,
-    concatenate_matrices
+    scale_from_matrix,
+    unit_vector
 )
+
+
+class Matrix(object):
+
+    def __init__(self, array=None):
+        self.array = array if array is not None else np.identity(4)
+
+    @classmethod
+    def translation_matrix(cls, t):
+        m = cls()
+        m.translate(t)
+        return m
+
+    @classmethod
+    def rotation_matrix(cls, angle, axis):
+        m = cls()
+        m.rotate(angle, axis)
+        return m
+
+    @classmethod
+    def scale_matrix(cls, s):
+        m = cls()
+        m.scale(s)
+        return m
+
+    def translate(self, t):
+        ta = translation_matrix((t[0], t[1], t[2]))
+        self.array = concatenate_matrices(self.array, ta)
+
+    def translate_x(self, x):
+        self.translate((x, 0, 0))
+
+    def translate_y(self, y):
+        self.translate((0, y, 0))
+
+    def translate_z(self, z):
+        self.translate((0, 0, z))
+
+    def rotate(self, angle, axis):
+        ra = rotation_matrix(math.radians(angle), axis)
+        self.array = concatenate_matrices(self.array, ra)
+
+    def rotate_x(self, x):
+        self.rotate(x, (1, 0, 0))
+
+    def rotate_y(self, y):
+        self.rotate(y, (0, 1, 0))
+
+    def rotate_z(self, z):
+        self.rotate(z, (0, 0, 1))
+
+    def scale(self, s):
+        sa = np.diag([s[0], s[1], s[2], 1.0])
+        self.array = concatenate_matrices(self.array, sa)
+
+    def scale_x(self, x):
+        self.scale((x, 1, 1))
+
+    def scale_y(self, y):
+        self.scale((1, y, 1))
+
+    def scale_z(self, z):
+        self.scale((1, 1, z))
+
+    def __mul__(self, other):
+        return self.__class__(concatenate_matrices(self.array, other.array))
+
+    def __copy__(self):
+        return self.__class__(self.array.copy())
 
 
 class Volume(object):
 
     """All xform manipulation is done in local space."""
 
-    def __init__(self, width=1, height=1, depth=1, xform=None):
-        self.width = width
-        self.height = height
-        self.depth = depth
-        self.xform = xform if xform is not None else identity_matrix()
-
-    def __str__(self):
-        str_ = '<Volume width={} height={} depth={} xform=\n{}>'
-        return str_.format(self.width, self.height, self.depth, self.xform)
+    def __init__(self, x=1, y=1, z=1, matrix=None):
+        self.dimensions = np.array([x, y, z], dtype=np.float64)
+        self.matrix = matrix if matrix is not None else Matrix()
 
     @classmethod
     def from_volume(cls, v):
-        return cls(v.width, v.height, v.depth, v.xform.copy())
+        return cls(v.x, v.y, v.z, copy.copy(v.matrix))
 
-    def translate(self, value):
-        t = translation_matrix(value)
-        self.xform = concatenate_matrices(t, self.xform)
+    @classmethod
+    def from_dimensions(cls, d):
+        return cls(d[0], d[1], d[2])
 
-    def translate_x(self, value):
-        self.translate((value, 0, 0))
+    def __str__(self):
+        str_ = '<Volume x={} y={} z={} matrix=\n{}>'
+        return str_.format(self.x, self.y, self.z, self.matrix)
 
-    def translate_y(self, value):
-        self.translate((0, value, 0))
+    @property
+    def x(self):
+        return self.dimensions[0]
 
-    def translate_z(self, value):
-        self.translate((0, 0, value))
+    @x.setter
+    def x(self, x):
+        self.dimensions[0] = x
 
-    def rotate(self, value, origin=None):
-        origin = origin or (0, 0, 0)
-        r = rotation_matrix(value, origin)
-        self.xform = concatenate_matrices(r, self.xform)
+    @property
+    def y(self):
+        return self.dimensions[1]
 
-    def scale(self, factor, direction, origin=None):
-        s = scale_matrix(factor, origin=origin, direction=direction)
-        self.xform = concatenate_matrices(s, self.xform)
+    @y.setter
+    def y(self, y):
+        self.dimensions[1] = y
 
-    def scale_x(self, factor, origin=None):
-        self.scale(factor, (1, 0, 0), origin)
+    @property
+    def z(self):
+        return self.dimensions[2]
 
-    def scale_y(self, factor, origin=None):
-        self.scale(factor, (0, 1, 0), origin)
-
-    def scale_z(self, factor, origin=None):
-        self.scale(factor, (0, 0, 1), origin)
+    @z.setter
+    def z(self, z):
+        self.dimensions[2] = z
 
 
 class GeneratorBase(object):
@@ -70,8 +141,15 @@ class GeneratorBase(object):
         self.selectors = {}
         self.run()
 
-    def add_selector(self, name, volume):
-        self.selectors.setdefault(name, []).append(volume)
+    def add_selector(self, volume, *tags):
+        for tag in tags:
+            self.selectors.setdefault(tag, []).append(volume)
+
+    def select(self, *tags):
+        volumes = []
+        for tag in tags:
+            volumes.extend(self.selectors[tag])
+        return volumes
 
     @abc.abstractmethod
     def run(self):
@@ -80,49 +158,100 @@ class GeneratorBase(object):
 
 class DivideBase(GeneratorBase):
 
-    def __init__(self, vector, num_sections, *args, **kwargs):
+    def __init__(self, index, num_sections, *args, **kwargs):
+        self.index = index
         self.num_sections = num_sections
-        self.vector = vector
         super(DivideBase, self).__init__(*args, **kwargs)
 
     def run(self):
-        size = 1 / float(self.num_sections)
+        size = self.volume.dimensions[self.index] / float(self.num_sections)
         for i in range(self.num_sections):
             v = Volume.from_volume(self.volume)
-            v.scale(size, self.vector)
-            v.translate(self.vector * size * i)
-            self.add_selector('all', v)
+            v.dimensions[self.index] = size
+            translate = np.zeros(3)
+            translate[self.index] = 1
+            v.matrix.translate(translate * size * i)
+            self.add_selector(v, 'all')
         
         
 class DivideX(DivideBase):
 
     def __init__(self, *args, **kwargs):
-        vector = np.array([1, 0, 0])
-        super(DivideX, self).__init__(vector, *args, **kwargs)
+        index = 0
+        super(DivideX, self).__init__(index, *args, **kwargs)
 
 
 class DivideY(DivideBase):
 
     def __init__(self, *args, **kwargs):
-        vector = np.array([0, 1, 0])
-        super(DivideY, self).__init__(vector, *args, **kwargs)
+        index = 1
+        super(DivideY, self).__init__(index, *args, **kwargs)
 
 
 class DivideZ(DivideBase):
 
     def __init__(self, *args, **kwargs):
-        vector = np.array([0, 0, 1])
-        super(DivideZ, self).__init__(vector, *args, **kwargs)
+        index = 2
+        super(DivideZ, self).__init__(index, *args, **kwargs)
+
+
+class Box(GeneratorBase):
+
+    def create_face(self, degrees, axis, dimensions):
+        v = Volume()
+        v.x = dimensions[0]
+        v.y = 0
+        v.z = dimensions[2]
+
+        v.matrix.translate_x(-dimensions[0] / 2.0)
+        v.matrix.translate_y(-dimensions[1] / 2.0)
+        v.matrix.translate_z(-dimensions[2] / 2.0)
+
+        rot = Matrix.rotation_matrix(degrees, axis)
+        v.matrix = rot * v.matrix
+
+        center = Matrix.translation_matrix((
+            self.volume.x / 2.0,
+            self.volume.y / 2.0,
+            self.volume.z / 2.0
+        ))
+        v.matrix = self.volume.matrix * center * v.matrix
+
+        return v
+
+    def run(self):
+        x, y, z = self.volume.dimensions
+        self.add_selector(self.create_face(  0, (0, 0, 1), (x, y, z)), 'all', 'sides', 'x-sides', 'front')
+        self.add_selector(self.create_face( 90, (0, 0, 1), (y, x, z)), 'all', 'sides', 'y-sides', 'right')
+        self.add_selector(self.create_face(180, (0, 0, 1), (x, y, z)), 'all', 'sides', 'x-sides', 'back')
+        self.add_selector(self.create_face(270, (0, 0, 1), (y, x, z)), 'all', 'sides', 'y-sides', 'left')
+        self.add_selector(self.create_face(-90, (1, 0, 0), (x, z, y)), 'all',  'ends', 'top')
+        self.add_selector(self.create_face( 90, (1, 0, 0), (x, z, y)), 'all',  'ends', 'bottom')
 
 
 class Columns(GeneratorBase):
 
     def run(self):
-        div_x = DivideX(10, self.volume)
-        for column in div_x.selectors['all']:
-            div_z = DivideZ(4, column)
-            for section in div_z.selectors['all']:
-                self.add_selector('all', section)
+
+        index = 0
+
+        size = self.volume.dimensions[index] / 3.0
+        for i in range(3):
+            v = Volume.from_volume(self.volume)
+            #v.width = size
+            amt = np.array([1, 0, 0]) * i * size
+            v.translate(amt)
+            self.add_selector(v, 'all')
+
+        #div_x = DivideX(2, self.volume)
+        ##for column in div_x.selectors['all']:
+        #    self.add_selector(column, 'all')
+        # for column in div_x.selectors['all']:
+        #     div_y = DivideY(2, column)
+        #     for row in div_y.selectors['all']:
+        #         div_z = DivideZ(2, row)
+        #         for section in div_z.selectors['all']:
+        #             self.add_selector(section, 'all')
 
 
 if __name__ == '__main__':

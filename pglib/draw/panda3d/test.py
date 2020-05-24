@@ -22,24 +22,28 @@ class MyApp(ShowBase):
         self.set_up_lights()
         self.set_up_helpers()
 
-        v = Volume(10, 20, 30)
-        v.matrix.rotate(25, (-1, -1, -1))
-        v.matrix.translate_x(15)
-        v.matrix.translate_y(0)
-        v.matrix.translate_z(0)
-        v.matrix.scale_x(1.5)
-        self.create_box(v)
+        #v = Volume(10, 20, 30)
 
-        b = Box(v)
-        for s in b.select('sides'):
-            d = DivideX(3, s)
-            for c in d.select('all'):
-                self.create_box(c)
+        #
+        # v.matrix.rotate(25, (-1, -1, -1))
+        # v.matrix.translate_x(15)
+        # v.matrix.translate_y(0)
+        # v.matrix.translate_z(0)
+        # v.matrix.scale_x(1.5)
+        # self.create_box(v)
 
-        for s in b.select('top'):
-            d = DivideZ(3, s)
-            for c in d.select('all'):
-                self.create_box(c)
+        #return
+
+        # b = Box(v)
+        # for s in b.select('sides'):
+        #     d = DivideX(3, s)
+        #     for c in d.select('all'):
+        #         self.create_box(c)
+        #
+        # for s in b.select('top'):
+        #     d = DivideZ(3, s)
+        #     for c in d.select('all'):
+        #         self.create_box(c)
 
         # v = Volume(100, 100, 100)
         # c = Cantor(v)
@@ -47,19 +51,18 @@ class MyApp(ShowBase):
         #     self.create_box(b)
 
 
-        #
-        # v = Volume(5, 5, 50)
-        # c = Branch(v)
-        # for b in c.select('all'):
-        #     self.create_box(b)
+
+        v = Volume(5, 5, 50)
+        #self.create_box(v)
+        c = Branch(v)
+        for b in c.select('all'):
+            self.create_box(b)
 
 
 
     def create_box(self, v):
         x, y, z = v.dimensions
-        b = geometry.Box(x, y, z,
-            origin=-pm.Point3(v.x / 2.0, v.y / 2.0, v.z / 2.0)
-        )
+        b = geometry.Box(x, y, z, origin=-pm.Point3(*v.dimensions.center))
         box = pm.NodePath(b)
         box.setRenderModeWireframe()
         box.setTwoSided(True)
@@ -69,14 +72,14 @@ class MyApp(ShowBase):
         m.transposeInPlace()
         box.setMat(m)
 
-        #return
+        return
 
         s = loader.loadModel('smiley')
         s.reparentTo(self.render)
 
         fix_model_scale = pm.LMatrix4f().scaleMat(0.5)
         fix_model_pos = pm.LMatrix4f().translateMat(1, 1, 1)
-        dimension_scale = pm.LMatrix4f().scaleMat(pm.LVecBase3f(v.x, v.y, v.z))
+        dimension_scale = pm.LMatrix4f().scaleMat(pm.LVecBase3f(x, y, z))
         m = fix_model_pos * dimension_scale * fix_model_scale * m
         s.setMat(m)
 

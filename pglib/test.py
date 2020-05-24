@@ -18,10 +18,59 @@ from transformations import (
 )
 
 
+class Dimensions(object):
+
+    def __init__(self, x=1, y=1, z=1):
+        self.array = np.array([x, y, z], dtype=np.float64)
+
+    def __getitem__(self, index):
+        return self.array[index]
+
+    def __setitem__(self, index, value):
+        self.array[index] = value
+
+    def __mul__(self, other):
+        return self.__class__(*self.array * other)
+
+    def __div__(self, other):
+        return self.__class__(*self.array / other)
+
+    @property
+    def x(self):
+        return self.array[0]
+
+    @x.setter
+    def x(self, x):
+        self.array[0] = x
+
+    @property
+    def y(self):
+        return self.array[1]
+
+    @y.setter
+    def y(self, y):
+        self.array[1] = y
+
+    @property
+    def z(self):
+        return self.array[2]
+
+    @z.setter
+    def z(self, z):
+        self.array[2] = z
+
+    @property
+    def center(self):
+        return self.array / 2.0
+
+    def scale(self, s):
+        self.array = self.array * s
+
+
 class Matrix(object):
 
     def __init__(self, array=None):
-        self.array = array if array is not None else np.identity(4)
+        self.array = array if array is not None else np.identity(4, dtype=np.float64)
 
     @classmethod
     def translation_matrix(cls, t):
@@ -43,6 +92,12 @@ class Matrix(object):
 
     def __str__(self):
         return str(self.array)
+
+    def __mul__(self, other):
+        return self.__class__(concatenate_matrices(self.array, other.array))
+
+    def __copy__(self):
+        return self.__class__(self.array.copy())
 
     def translate(self, t):
         ta = translation_matrix((t[0], t[1], t[2]))
@@ -83,56 +138,36 @@ class Matrix(object):
     def scale_z(self, z):
         self.scale((1, 1, z))
 
-    def __mul__(self, other):
-        return self.__class__(concatenate_matrices(self.array, other.array))
-
-    def __copy__(self):
-        return self.__class__(self.array.copy())
-
 
 class Volume(object):
 
     """All xform manipulation is done in local space."""
 
     def __init__(self, x=1, y=1, z=1, matrix=None):
-        self.dimensions = np.array([x, y, z], dtype=np.float64)
+        self.dimensions = Dimensions(x, y, z)
         self.matrix = matrix if matrix is not None else Matrix()
 
     @classmethod
     def from_volume(cls, v):
-        return cls(v.x, v.y, v.z, copy.copy(v.matrix))
+        return cls(
+            v.dimensions.x,
+            v.dimensions.y,
+            v.dimensions.z,
+            copy.copy(v.matrix)
+        )
 
     @classmethod
     def from_dimensions(cls, d):
-        return cls(d[0], d[1], d[2])
+        return cls(d.x, d.y, d.z)
 
     def __str__(self):
         str_ = '<Volume x={} y={} z={} matrix=\n{}>'
-        return str_.format(self.x, self.y, self.z, self.matrix)
-
-    @property
-    def x(self):
-        return self.dimensions[0]
-
-    @x.setter
-    def x(self, x):
-        self.dimensions[0] = x
-
-    @property
-    def y(self):
-        return self.dimensions[1]
-
-    @y.setter
-    def y(self, y):
-        self.dimensions[1] = y
-
-    @property
-    def z(self):
-        return self.dimensions[2]
-
-    @z.setter
-    def z(self, z):
-        self.dimensions[2] = z
+        return str_.format(
+            self.dimensions.x,
+            self.dimensions.y,
+            self.dimensions.z,
+            self.matrix
+        )
 
 
 class GeneratorBase(object):
@@ -212,9 +247,10 @@ class Box(GeneratorBase):
 
     def create_face(self, degrees, axis, dimensions):
         v = Volume()
-        v.x = dimensions[0]
-        v.y = 0
-        v.z = dimensions[2]
+
+        v.dimensions.x = dimensions[0]
+        v.dimensions.y = 0
+        v.dimensions.z = dimensions[2]
 
         v.matrix.translate_x(-dimensions[0] / 2.0)
         v.matrix.translate_y(-dimensions[1] / 2.0)
@@ -224,9 +260,9 @@ class Box(GeneratorBase):
         v.matrix = rot * v.matrix
 
         center = Matrix.translation_matrix((
-            self.volume.x / 2.0,
-            self.volume.y / 2.0,
-            self.volume.z / 2.0
+            self.volume.dimensions.x / 2.0,
+            self.volume.dimensions.y / 2.0,
+            self.volume.dimensions.z / 2.0
         ))
         v.matrix = self.volume.matrix * center * v.matrix
 
@@ -273,8 +309,8 @@ class Cantor(GeneratorBase):
 
         # Base.
         v = Volume.from_volume(self.volume)
-        height = random.randint(1, 10)
-        v.z = height
+        height = 5#random.randint(1, 10)
+        v.dimensions.z = height
         self.add_selector(v, 'all')
 
         div_x = DivideX(3, v)
@@ -283,12 +319,12 @@ class Cantor(GeneratorBase):
             first, last = div_y.select('first', 'last')
 
             first.matrix.translate_z(height)
-            if first.x > 1:
+            if first.dimensions.x > 1:
                 c = Cantor(first)
                 self.add_selectors(c.select('all'), 'all')
 
             last.matrix.translate_z(height)
-            if last.x > 1:
+            if last.dimensions.x > 1:
                 c = Cantor(last)
                 self.add_selectors(c.select('all'), 'all')
 
@@ -299,13 +335,11 @@ class Branch(GeneratorBase):
 
         # Base.
         v = Volume.from_volume(self.volume)
-        v.x *= 0.8
-        v.y *= 0.8
-        v.z *= 0.88
+        v.dimensions.scale((0.8, 0.8, 0.9))
 
         center = Matrix.translation_matrix((
-            (self.volume.x - v.x) / 2.0,
-            (self.volume.y - v.y) / 2.0,
+            (self.volume.dimensions.x - v.dimensions.x) / 2.0,
+            (self.volume.dimensions.y - v.dimensions.y) / 2.0,
             0
         ))
         v.matrix = center * v.matrix

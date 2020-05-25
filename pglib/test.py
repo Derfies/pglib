@@ -1,142 +1,10 @@
 import abc
-import math
 import copy
-import random
+
 import numpy as np
 
-from transformations import (
-    identity_matrix,
-    inverse_matrix,
-    compose_matrix,
-    decompose_matrix,
-    concatenate_matrices,
-    translation_matrix,
-    rotation_matrix,
-    scale_matrix,
-    scale_from_matrix,
-    unit_vector
-)
-
-
-class Dimensions(object):
-
-    def __init__(self, x=1, y=1, z=1):
-        self.array = np.array([x, y, z], dtype=np.float64)
-
-    def __getitem__(self, index):
-        return self.array[index]
-
-    def __setitem__(self, index, value):
-        self.array[index] = value
-
-    def __mul__(self, other):
-        return self.__class__(*self.array * other)
-
-    def __div__(self, other):
-        return self.__class__(*self.array / other)
-
-    @property
-    def x(self):
-        return self.array[0]
-
-    @x.setter
-    def x(self, x):
-        self.array[0] = x
-
-    @property
-    def y(self):
-        return self.array[1]
-
-    @y.setter
-    def y(self, y):
-        self.array[1] = y
-
-    @property
-    def z(self):
-        return self.array[2]
-
-    @z.setter
-    def z(self, z):
-        self.array[2] = z
-
-    @property
-    def center(self):
-        return self.array / 2.0
-
-    def scale(self, s):
-        self.array = self.array * s
-
-
-class Matrix(object):
-
-    def __init__(self, array=None):
-        self.array = array if array is not None else np.identity(4, dtype=np.float64)
-
-    @classmethod
-    def translation_matrix(cls, t):
-        m = cls()
-        m.translate(t)
-        return m
-
-    @classmethod
-    def rotation_matrix(cls, angle, axis):
-        m = cls()
-        m.rotate(angle, axis)
-        return m
-
-    @classmethod
-    def scale_matrix(cls, s):
-        m = cls()
-        m.scale(s)
-        return m
-
-    def __str__(self):
-        return str(self.array)
-
-    def __mul__(self, other):
-        return self.__class__(concatenate_matrices(self.array, other.array))
-
-    def __copy__(self):
-        return self.__class__(self.array.copy())
-
-    def translate(self, t):
-        ta = translation_matrix((t[0], t[1], t[2]))
-        self.array = concatenate_matrices(self.array, ta)
-
-    def translate_x(self, x):
-        self.translate((x, 0, 0))
-
-    def translate_y(self, y):
-        self.translate((0, y, 0))
-
-    def translate_z(self, z):
-        self.translate((0, 0, z))
-
-    def rotate(self, angle, axis):
-        ra = rotation_matrix(math.radians(angle), axis)
-        self.array = concatenate_matrices(self.array, ra)
-
-    def rotate_x(self, x):
-        self.rotate(x, (1, 0, 0))
-
-    def rotate_y(self, y):
-        self.rotate(y, (0, 1, 0))
-
-    def rotate_z(self, z):
-        self.rotate(z, (0, 0, 1))
-
-    def scale(self, s):
-        sa = np.diag([s[0], s[1], s[2], 1.0])
-        self.array = concatenate_matrices(self.array, sa)
-
-    def scale_x(self, x):
-        self.scale((x, 1, 1))
-
-    def scale_y(self, y):
-        self.scale((1, y, 1))
-
-    def scale_z(self, z):
-        self.scale((1, 1, z))
+from pglib.geometry.matrix import Matrix4 as Matrix
+from pglib.geometry.point import Point4
 
 
 class Volume(object):
@@ -144,7 +12,7 @@ class Volume(object):
     """All xform manipulation is done in local space."""
 
     def __init__(self, x=1, y=1, z=1, matrix=None):
-        self.dimensions = Dimensions(x, y, z)
+        self.dimensions = Point4(x, y, z)
         self.matrix = matrix if matrix is not None else Matrix()
 
     @classmethod
@@ -156,9 +24,9 @@ class Volume(object):
             copy.copy(v.matrix)
         )
 
-    @classmethod
-    def from_dimensions(cls, d):
-        return cls(d.x, d.y, d.z)
+    # @classmethod
+    # def from_dimensions(cls, d):
+    #     return cls(d.x, d.y, d.z)
 
     def __str__(self):
         str_ = '<Volume x={} y={} z={} matrix=\n{}>'
@@ -170,14 +38,39 @@ class Volume(object):
         )
 
 
+class Cursor(Volume):
+
+    def __init__(self, *args, **kwargs):
+        super(Cursor, self).__init__(*args, **kwargs)
+
+        self.pivot = Point4()
+
+
 class GeneratorBase(object):
 
     __metaclass__ = abc.ABCMeta
 
+    class Context(object):
+
+        def __init__(self, generator):
+            self.generator = generator
+
+        def __enter__(self):
+            v = self.generator.cursor
+            self.generator._cursors.append(Volume.from_volume(v))
+
+        def __exit__(self, type, value, traceback):
+            self.generator._cursors.pop()
+
     def __init__(self, volume):
         self.volume = volume
+        self._cursors = [Volume.from_volume(volume)]
         self.selectors = {}
         self.run()
+
+    @property
+    def cursor(self):
+        return self._cursors[-1]
 
     def add_selector(self, volume, *tags):
         for tag in tags:
@@ -192,6 +85,66 @@ class GeneratorBase(object):
         for tag in tags:
             volumes.extend(self.selectors[tag])
         return volumes
+
+    @property
+    def x(self):
+        return self.cursor.dimensions.x
+
+    @property
+    def y(self):
+        return self.cursor.dimensions.y
+
+    @property
+    def z(self):
+        return self.cursor.dimensions.z
+
+    def translate(self, x, y, z):
+        self.cursor.matrix.translate((x, y, z))
+
+    def translate_x(self, x):
+        self.translate(x, 0, 0)
+
+    def translate_y(self, y):
+        self.translate(0, y, 0)
+
+    def translate_z(self, z):
+        self.translate(0, 0, z)
+
+    def rotate(self, degrees, axis):
+        self.cursor.matrix.rotate(degrees, axis)
+
+    def rotate_x(self, x):
+        self.rotate(x, (1, 0, 0))
+
+    def rotate_y(self, y):
+        self.rotate(y, (0, 1, 0))
+
+    def rotate_z(self, z):
+        self.rotate(z, (0, 0, 1))
+
+    def scale(self, x, y, z):
+        self.cursor.dimensions *= Point4(x, y, z, 1)
+
+    def scale_x(self, x):
+        self.scale(x, 1, 1)
+
+    def scale_y(self, y):
+        self.scale(1, y, 1)
+
+    def scale_z(self, z):
+        self.scale(1, 1, z)
+
+    def center(self, arg):
+        d = (self.volume.dimensions - self.cursor.dimensions) / 2
+        if 'x' in arg:
+            self.translate_x(d.x)
+        if 'y' in arg:
+            self.translate_y(d.y)
+        if 'z' in arg:
+            self.translate_z(d.z)
+
+    def push(self):
+        return self.Context(self)
 
     @abc.abstractmethod
     def run(self):
@@ -269,7 +222,7 @@ class Box(GeneratorBase):
         return v
 
     def run(self):
-        x, y, z = self.volume.dimensions
+        x, y, z, _ = self.volume.dimensions
         self.add_selector(self.create_face(  0, (0, 0, 1), (x, y, z)), 'all', 'sides', 'x-sides', 'front')
         self.add_selector(self.create_face( 90, (0, 0, 1), (y, x, z)), 'all', 'sides', 'y-sides', 'right')
         self.add_selector(self.create_face(180, (0, 0, 1), (x, y, z)), 'all', 'sides', 'x-sides', 'back')
@@ -329,20 +282,51 @@ class Cantor(GeneratorBase):
                 self.add_selectors(c.select('all'), 'all')
 
 
+class CantorRedo(GeneratorBase):
+
+    def run(self):
+
+        height = 5
+        self.scale_z(height)
+
+        div_x = self.instantiate(DivideX(3))
+        with self.push(div_x.select('first', 'last')):
+            div_y = self.instantiate(DivideY(3))
+            with self.push(div_y.select('first', 'last')):
+                self.instantiate(Branch)
+
+
+
+        #for div in DivideX(3, v).select()
+
+        # with self.push():
+        #     self.move_z(self.z)
+        #     self.rotate_x(15)
+        #     self.instantiate(Branch)
+        #
+        # with self.push():
+        #     self.move_z(self.z)
+        #     self.rotate_x(-15)
+        #     self.instantiate(Branch)
+
+
 class Branch(GeneratorBase):
 
     def run(self):
 
         # Base.
-        v = Volume.from_volume(self.volume)
-        v.dimensions.scale((0.8, 0.8, 0.9))
 
+        # Make volume first argument of run?
+        v = Volume.from_volume(self.volume)
+        v.dimensions *= Point4(0.8, 0.8, 0.9)
+
+        # Make center a function? ie "center this volume"
         center = Matrix.translation_matrix((
             (self.volume.dimensions.x - v.dimensions.x) / 2.0,
             (self.volume.dimensions.y - v.dimensions.y) / 2.0,
             0
         ))
-        v.matrix = center * v.matrix
+        v.matrix = v.matrix * center
         self.add_selector(v, 'all')
 
 
@@ -356,7 +340,27 @@ class Branch(GeneratorBase):
                 self.add_selectors(c.select('all'), 'all')
 
 
-if __name__ == '__main__':
-    v = Volume(20, 20, 20)
-    c = Columns(v)
-    c.run()
+class BranchRedo(GeneratorBase):
+
+    def run(self):
+
+        # Call center first, it moves the cursor...
+        self.scale(0.8, 0.8, 0.9)
+        self.center('xy')
+
+        print id(self.cursor)
+        self.add_selector(self.cursor, 'all')
+
+        with self.push():
+            self.translate_z(self.z)
+            self.rotate_y(15)
+
+            print id(self.cursor)
+            self.add_selector(self.cursor, 'all')
+
+        with self.push():
+            self.translate_z(self.z)
+            self.rotate_y(-15)
+
+            print id(self.cursor)
+            self.add_selector(self.cursor, 'all')

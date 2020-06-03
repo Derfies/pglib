@@ -12,11 +12,14 @@ class Vector2(object):
     def __init__(self, x=0, y=0):
         self.array = np.array([x, y], dtype=np.float64)
 
+    def __len__(self):
+         return len(self.array)
+
     def __str__(self):
         return str(self.array)
 
     def __copy__(self):
-        return self.__class__(self.array.copy())
+        return self.__class__(*self.array.copy())
 
     def __add__(self, other):
         if isinstance(other, Vector4):

@@ -11,7 +11,7 @@ import enum
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from pglib.geometry.point import Point2d
+#from pglib.geometry.point import Point2d
 from pglib.graph.const import ANGLE, DIRECTION, POSITION, LENGTH, Angle, Direction
 from pglib.graph.face import Face
 from pglib.graph.orthogonalmesh import OrthogonalMesh

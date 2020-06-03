@@ -1,14 +1,15 @@
 import pyglet
 
+from pglib.draw.appbase import AppBase
 from pglib.geometry.point import Point2d
 from pglib.draw.pyglet.drawables import Grid
 from pglib.draw.pyglet import utils
 
 
-class AppBase(pyglet.window.Window):
+class App(pyglet.window.Window, AppBase):
 
     def __init__(self, root_node, grid_spacing, *args, **kwargs):
-        super(AppBase, self).__init__(*args, **kwargs)
+        super(App, self).__init__(*args, **kwargs)
 
         pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
         pyglet.gl.glBlendFunc(

@@ -1,11 +1,11 @@
 import math
 
 import numpy as np
-
 from transformations import (
     concatenate_matrices,
     translation_matrix,
     rotation_matrix,
+    inverse_matrix
 )
 
 
@@ -40,6 +40,9 @@ class Matrix4(object):
 
     def __mul__(self, other):
         return self.__class__(concatenate_matrices(self.array, other.array))
+
+    def copy(self):
+        return self.__copy__()
 
     def translate(self, t):
         ta = translation_matrix((t[0], t[1], t[2]))
@@ -79,3 +82,12 @@ class Matrix4(object):
 
     def scale_z(self, z):
         self.scale((1, 1, z))
+
+    def inverse(self):
+        return self.__class__(inverse_matrix(self.array))
+
+    @classmethod
+    def compose(cls, position, rotation):
+        t = cls(translation_matrix(position))
+        r = cls(rotation.transformation_matrix)
+        return t * r

@@ -1,100 +1,63 @@
 """
 TODO: Differentiate point and vector.
 "not all points are vectors, but all vectors are points"
+"points can be represented as a vector, but vectors are not points."
+Now I'm confused...
 
 https://stackoverflow.com/questions/3913832/what-is-a-3d-vector-and-how-does-it-differ-from-a-3d-point
 """
 import numpy as np
 
 
-class Vector2(object):
+class components(object):
 
-    def __init__(self, x=0, y=0):
-        self.array = np.array([x, y], dtype=np.float64)
+    def __init__(self, *components):
+        self.components = components
 
-    def __len__(self):
-         return len(self.array)
-
-    def __str__(self):
-        return str(self.array)
-
-    def __copy__(self):
-        return self.__class__(*self.array.copy())
-
-    def __add__(self, other):
-        if isinstance(other, Vector4):
-            other = other.array
-        return self.__class__(*self.array + other)
-
-    def __sub__(self, other):
-        if isinstance(other, Vector4):
-            other = other.array
-        return self.__class__(*self.array - other)
-
-    def __mul__(self, other):
-        if isinstance(other, Vector4):
-            other = other.array
-        return self.__class__(*self.array * other)
-
-    def __div__(self, other):
-        if isinstance(other, Vector4):
-            other = other.array
-        return self.__class__(*self.array / other)
-
-    def __getitem__(self, index):
-        return self.array[index]
-
-    def __setitem__(self, index, value):
-        self.array[index] = value
-
-    @property
-    def x(self):
-        return self.array[0]
-
-    @x.setter
-    def x(self, x):
-        self.array[0] = x
-
-    @property
-    def y(self):
-        return self.array[1]
-
-    @y.setter
-    def y(self, y):
-        self.array[1] = y
+    def __call__(self, cls):
+        setattr(cls, '__slots__', self.components)
+        for i, component in enumerate(self.components):
+            def fget(self, index=i): return self[index]
+            def fset(self, value, index=i): self[index] = value
+            setattr(cls, component, property(fget, fset))
+        return cls
 
 
-class Vector3(Vector2):
+class VectorBase(np.ndarray):
 
-    """
+    def __new__(cls, *props):
+        if len(props) != len(cls.__slots__):
+            msg = '{} takes exactly {} component(s) ({} given)'.format(
+                cls.__name__,
+                len(cls.__slots__),
+                len(props)
+            )
+            raise ValueError(msg)
+        return np.asarray(props, dtype=np.float64).view(cls)
 
-    """
+    def __abs__(self):
+        return np.linalg.norm(self)
 
-    def __init__(self, x=0, y=0, z=0):
-        self.array = np.array([x, y, z], dtype=np.float64)
+    def dist(self, other):
+        return np.linalg.norm(self - other)
 
-    @property
-    def z(self):
-        return self.array[2]
-
-    @z.setter
-    def z(self, z):
-        self.array[2] = z
+    def dot(self, other):
+        return np.dot(self, other)
 
 
-class Vector4(Vector3):
+@components('x', 'y')
+class Vector2(VectorBase):
 
-    """
+    pass
 
-    """
 
-    def __init__(self, x=0, y=0, z=0, w=0):
-        self.array = np.array([x, y, z, w], dtype=np.float64)
+@components('x', 'y', 'z')
+class Vector3(VectorBase):
 
-    @property
-    def w(self):
-        return self.array[3]
+    pass
 
-    @w.setter
-    def w(self, w):
-        self.array[3] = w
+
+@components('x', 'y', 'z', 'w')
+class Vector4(VectorBase):
+
+    pass
